@@ -1,0 +1,49 @@
+{
+  "name": "dhiraj_ayu_academy_backend",
+  "version": "1.0.0",
+  "description": "Backend for course management system",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx tsc --build",
+    "start": "node -r module-alias/register ./dist/index.js",
+    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
+    "db:gen": "npx prisma generate"
+  },
+  "_moduleAliases": {
+    "@": "./dist",
+    "@v0": "./dist/api/v0"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.0.1",
+    "@types/pg": "^8.16.0",
+    "nodemon": "^3.1.11",
+    "prisma": "^7.1.0",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.955.0",
+    "@aws-sdk/s3-request-presigner": "^3.955.0",
+    "@prisma/adapter-pg": "^7.1.0",
+    "@prisma/client": "^7.1.0",
+    "@types/backblaze-b2": "^1.5.6",
+    "@types/base-64": "^1.0.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/mime-types": "^3.0.1",
+    "backblaze-b2": "^1.7.1",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.6.0",
+    "mime-types": "^3.0.2",
+    "module-alias": "^2.2.3",
+    "pg": "^8.16.3",
+    "razorpay": "^2.9.6",
+    "zod": "^4.1.13"
+  }
+}

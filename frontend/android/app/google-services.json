@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "462598414836",
+    "project_id": "dhiraj-ayu-academy",
+    "storage_bucket": "dhiraj-ayu-academy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:462598414836:android:d977b7761965642e5b99a1",
+        "android_client_info": {
+          "package_name": "com.example.dhiraj_ayu_academy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "462598414836-ocst1atm2ih26mdqpnkvntd52gp55p92.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.dhiraj_ayu_academy",
+            "certificate_hash": "1c4af35c607d16e8035add44098131d74ba8b6bf"
+          }
+        },
+        {
+          "client_id": "462598414836-lnuj8aa3tl0n11gscnuac4srt4en6ch5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJZjW2GaKHamUhF7_BR-Ok0JkWu0Dkviw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "462598414836-lnuj8aa3tl0n11gscnuac4srt4en6ch5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "462598414836-ddve1b99fq7vei03jmht84636ajkijbr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.dhirajAyuAcademy"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
