@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppSpacing.dart';
-import '../../constants/AppTypography.dart';
-import '../../constants/AppConstants.dart';
-import '../../widgets/cards.dart';
-import '../../widgets/inputs.dart';
-import '../../widgets/common_widgets.dart';
-import '../../services/api_service.dart';
-import 'course_detail_screen.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppConstants.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/cards.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/inputs.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/screens/courses/course_detail_screen.dart';
 
 /// Courses Screen
 /// Browse all available courses with filters and search
@@ -25,6 +25,17 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   String _selectedCategory = AppConstants.courseCategories[0];
   String _selectedSort = AppConstants.courseSortOptions[0];
+
+  String _selectedSortKey = 'most_recent';
+
+  final Map<String, String> _sortMap = {
+    'Most Recent': 'most_recent',
+    'Most Popular': 'most_popular',
+    'Price: Low to High': 'price_asc',
+    'Price: High to Low': 'price_desc',
+    'A-Z': 'a_z',
+    'Z-A': 'z_a',
+  };
   bool _isLoading = false;
   bool _isRefreshing = false;
   bool _isLoadingMore = false;
@@ -85,9 +96,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
         'page': _currentPage,
         'pageSize': AppConstants.coursesPerPage,
         if (effectiveFilter != null) 'is_paid': effectiveFilter.toString(),
+        'sort': _selectedSortKey,
       };
-
-      print('DEBUG: fetching courses with params: $params');
 
       final response = await _apiService.get(
         'courses/get-all-courses',
@@ -133,9 +143,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
         'page': nextPage,
         'pageSize': AppConstants.coursesPerPage,
         if (_filterIsPaid != null) 'is_paid': _filterIsPaid.toString(),
+        'sort': _selectedSortKey,
       };
-
-      print('DEBUG: loading more courses with params: $params');
 
       final response = await _apiService.get(
         'courses/get-all-courses',
@@ -172,8 +181,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
       selected = false;
     }
 
-    print('DEBUG: Selected category: $category -> is_paid: $selected');
-
     setState(() {
       _selectedCategory = category;
       _filterIsPaid = selected;
@@ -193,59 +200,75 @@ class _CoursesScreenState extends State<CoursesScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.backgroundWhite,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppSpacing.radiusLG),
+      isScrollControlled: true,
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.6;
+        return Container(
+          height: maxHeight,
+          decoration: const BoxDecoration(
+            color: AppColors.backgroundWhite,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppSpacing.radiusLG),
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.borderLight,
-                borderRadius: BorderRadius.circular(2),
+          child: Column(
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Padding(
-              padding: AppSpacing.screenPaddingHorizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Sort By', style: AppTypography.headlineSmall),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+              const SizedBox(height: AppSpacing.md),
+              Padding(
+                padding: AppSpacing.screenPaddingHorizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Sort By', style: AppTypography.headlineSmall),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Column(
+                    children: AppConstants.courseSortOptions.map((option) {
+                      return ListTile(
+                        title: Text(option, style: AppTypography.bodyMedium),
+                        trailing: _selectedSort == option
+                            ? const Icon(
+                                Icons.check,
+                                color: AppColors.primaryGreen,
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedSort = option;
+                            _selectedSortKey =
+                                _sortMap[option] ?? 'most_recent';
+                          });
+                          Navigator.pop(context);
+                          _loadCourses();
+                        },
+                      );
+                    }).toList(),
                   ),
-                ],
+                ),
               ),
-            ),
-            const Divider(),
-            ...AppConstants.courseSortOptions.map((option) {
-              return ListTile(
-                title: Text(option, style: AppTypography.bodyMedium),
-                trailing: _selectedSort == option
-                    ? const Icon(Icons.check, color: AppColors.primaryGreen)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedSort = option;
-                  });
-                  Navigator.pop(context);
-                  _loadCourses();
-                },
-              );
-            }).toList(),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-        ),
-      ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+          ),
+        );
+      },
     );
   }
 

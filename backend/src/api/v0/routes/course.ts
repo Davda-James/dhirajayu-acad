@@ -8,10 +8,13 @@ import {
   requestMediaUpload,
   confirmMediaUpload,
   uploadThumbnail,
-  isLoggedInUserEnrolled
+  isLoggedInUserEnrolled,
+  buy_course,
+  verifyPayment,
+  getEnrolledCourses
 } from '@v0/controllers/course';
 import checkRoleisAdmin from '@v0/middlewares/checkRole';
-import { verifySession } from '@v0/middlewares/verifyToken';
+import { verifySession } from '@/api/v0/middlewares/auth';
 
 const router = Router();
 
@@ -29,5 +32,10 @@ router.post('/media/confirm-upload', verifySession, checkRoleisAdmin, confirmMed
 
 router.get('/get-all-courses', verifySession, getAllCourses);
 router.get('/check_enrollment/:courseId', verifySession, isLoggedInUserEnrolled);
+
+// Payment endpoints
+router.post('/buy-course', verifySession, buy_course);
+router.post('/verify-payment', verifySession, verifyPayment);
+router.get('/my-courses', verifySession, getEnrolledCourses);
 
 export default router;

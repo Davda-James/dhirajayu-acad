@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import 'home_tab.dart';
-import 'courses.dart';
-import 'users_controller.dart';
-import 'profile.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/home_tab.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/courses.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/users_controller.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/profile.dart';
 
 /// Admin Home Screen
 /// Bottom navigation with admin tabs: Courses, Media, Users

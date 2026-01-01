@@ -37,7 +37,8 @@ class _AddMediaSheetState extends State<AddMediaSheet> {
     try {
       final res = await FilePicker.platform.pickFiles(
         allowMultiple: false,
-        withData: true,
+        withData: false,
+        withReadStream: true,
         type: FileType.any,
       );
       if (res != null && res.files.isNotEmpty) {
@@ -82,13 +83,46 @@ class _AddMediaSheetState extends State<AddMediaSheet> {
                     ),
                     const SizedBox(height: 12.0),
                     ElevatedButton.icon(
-                      onPressed: _pickFile,
-                      icon: const Icon(Icons.attach_file),
+                      onPressed: _isPicking ? null : _pickFile,
+                      icon: _isPicking
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.attach_file),
                       label: Text(
-                        _chosen == null ? 'Choose File' : _chosen!.name,
+                        _isPicking
+                            ? 'Preparing file...'
+                            : (_chosen == null ? 'Choose File' : _chosen!.name),
                       ),
                     ),
-                    const SizedBox(height: 12.0),
+                    const SizedBox(height: 8.0),
+                    // Show helpful info while picking or when a large file is chosen
+                    if (_chosen != null &&
+                        _chosen!.size != null &&
+                        _chosen!.size > 50 * 1024 * 1024)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6.0, bottom: 6.0),
+                        child: Flexible(
+                          child: Text(
+                            'Large file selected (${(_chosen!.size / (1024 * 1024)).toStringAsFixed(1)} MB). Preparing and uploading may take several minutes.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.orange[800],
+                            ),
+                            softWrap: true,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 4.0),
                     TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(labelText: 'Title'),

@@ -9,7 +9,7 @@ import moduleRouter from '@v0/routes/module';
 import folderRouter from '@v0/routes/folder';
 import mediaAssetRouter from '@v0/routes/mediaAsset';
 import mediaUsageRouter from '@v0/routes/mediaUsage';
-import { verifyToken } from '@v0/middlewares/verifyToken';
+import { verifyToken } from '@/api/v0/middlewares/auth';
 
 const app = express();
 

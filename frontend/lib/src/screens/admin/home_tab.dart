@@ -1,7 +1,7 @@
-import '../../widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
 import 'package:flutter/material.dart';
 
-/// Simple admin home tab with a placeholder carousel of course thumbnails.
+/// Simple admin home tab
 class AdminHomeTab extends StatelessWidget {
   const AdminHomeTab({super.key});
 

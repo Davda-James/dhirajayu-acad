@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../constants/AppColors.dart';
-import '../constants/AppSpacing.dart';
-import '../constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 
 /// Text Input Field Widget
 /// Consistent text input styling

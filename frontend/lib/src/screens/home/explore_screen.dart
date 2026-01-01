@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppSpacing.dart';
-import '../../constants/AppTypography.dart';
-import '../../widgets/common_widgets.dart';
-// ...existing code...
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
 
 /// Explore Screen
 /// Dashboard/Home tab showing featured content and quick access

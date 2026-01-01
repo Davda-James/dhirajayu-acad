@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppSpacing.dart';
-import '../../constants/AppTypography.dart';
-import '../../widgets/cards.dart';
-import '../../widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/cards.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/screens/courses/course_content_screen.dart';
 
 /// My Courses Screen
 /// Display user's enrolled courses
@@ -49,11 +51,23 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
     }
 
     try {
-      // TODO: Implement API call to fetch enrolled courses
-      await Future.delayed(const Duration(seconds: 1));
+      final resp = await ApiService().get('courses/my-courses');
+      final List<dynamic> courses = resp.data['courses'] ?? [];
+
+      // For now, consider all as in-progress. If backend includes progress/completed flags, use them accordingly.
+      final enrolled = courses.cast<Map<String, dynamic>>();
 
       if (mounted) {
         setState(() {
+          _enrolledCourses.clear();
+          _enrolledCourses.addAll(enrolled);
+          _completedCourses.clear();
+          // If course has completed flag, move to completed list
+          for (final c in enrolled) {
+            if (c['completed'] == true) {
+              _completedCourses.add(c);
+            }
+          }
           _isLoading = false;
           _isRefreshing = false;
         });
@@ -162,7 +176,15 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
                   : null,
               isEnrolled: true,
               onTap: () {
-                // TODO: Navigate to course detail
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CourseContentScreen(
+                      courseId: course['id'],
+                      courseDetails: course,
+                    ),
+                  ),
+                );
               },
             ),
           );
@@ -172,14 +194,19 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
   }
 
   Widget _buildCourseProgressCard(Map<String, dynamic> course) {
-    // TODO: Get actual progress from course data
-    final progress = 0.0; // course['progress'] ?? 0.0;
-
     return Card(
       elevation: AppSpacing.elevationSM,
       child: InkWell(
         onTap: () {
-          // TODO: Navigate to course detail
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CourseContentScreen(
+                courseId: course['id'],
+                courseDetails: course,
+              ),
+            ),
+          );
         },
         borderRadius: AppSpacing.borderRadiusMD,
         child: Column(
@@ -225,46 +252,6 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-
-                  // Progress Bar
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Progress',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            '${(progress * 100).toInt()}%',
-                            style: AppTypography.labelMedium.copyWith(
-                              color: AppColors.primaryGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusRound,
-                        ),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: AppColors.borderLight,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.primaryGreen,
-                          ),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: AppSpacing.md),
 
                   // Continue Button
@@ -272,7 +259,16 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // TODO: Continue course
+                        // Navigate to course content
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CourseContentScreen(
+                              courseId: course['id'],
+                              courseDetails: course,
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(

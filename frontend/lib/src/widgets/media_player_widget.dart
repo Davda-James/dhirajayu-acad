@@ -3,8 +3,8 @@ import 'package:chewie/chewie.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:math' as math;
-import '../services/media_player_service.dart';
-import '../services/media_token_cache.dart';
+import 'package:dhiraj_ayu_academy/src/services/media_player_service.dart';
+import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
 
 class MediaPlayerWidget extends StatefulWidget {
   final String usageId;

@@ -1,16 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppTypography.dart';
 import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:crypto/crypto.dart';
-import '../../services/api_service.dart';
-import '../../widgets/common_widgets.dart';
-import 'course_details.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/course_details.dart';
 
 class AdminCoursesScreen extends StatefulWidget {
   const AdminCoursesScreen({super.key});
@@ -27,9 +26,6 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
   bool _showAddForm = false;
   final List<Map<String, dynamic>> _courses = [];
   String? _errorMessage;
-  // Increase viewportFraction to make cards wider while keeping a small peek
-  final PageController _pageController = PageController(viewportFraction: 0.94);
-  int _pageIndex = 0;
 
   @override
   void initState() {
@@ -38,8 +34,32 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
   }
 
   Future<void> _showAddCourseDialog() async {
-    // Toggle inline add form instead of dialog for smoother UX
-    setState(() => _showAddForm = !_showAddForm);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.9;
+        return Container(
+          height: maxHeight,
+          decoration: const BoxDecoration(
+            color: AppColors.backgroundWhite,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppSpacing.radiusLG),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: _InlineAddCourse(
+              onCreated: () async {
+                Navigator.pop(context);
+                await _loadCourses();
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _loadCourses({bool showGlobalLoading = true}) async {
@@ -182,88 +202,44 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.zero,
                       children: [
-                        SizedBox(
-                          height: 240,
-                          child: PageView.builder(
-                            controller: _pageController,
-                            itemCount: _courses.length,
-                            onPageChanged: (i) =>
-                                setState(() => _pageIndex = i),
-                            itemBuilder: (context, index) {
-                              final c = _courses[index];
-                              final imageUrl = c['thumbnail_url'] as String?;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6.0,
-                                  vertical: 8.0,
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => AdminCourseDetailScreen(
-                                          courseId: c['id'],
-                                          courseTitle: c['title'] ?? '',
-                                        ),
+                        ..._courses.map((c) {
+                          final imageUrl = c['thumbnail_url'] as String?;
+                          return SizedBox(
+                            height: 240,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6.0,
+                                vertical: 8.0,
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => AdminCourseDetailScreen(
+                                        courseId: c['id'],
+                                        courseTitle: c['title'] ?? '',
                                       ),
-                                    );
-                                  },
-                                  child: _CourseCard(
-                                    title: c['title'] ?? '',
-                                    subtitle: c['description'] ?? '',
-                                    price: c['is_paid'] == true
-                                        ? (c['price'] as num?)?.toDouble()
-                                        : null,
-                                    imageUrl: imageUrl,
-                                  ),
+                                    ),
+                                  );
+                                },
+                                child: _CourseCard(
+                                  title: c['title'] ?? '',
+                                  subtitle: c['description'] ?? '',
+                                  price: c['is_paid'] == true
+                                      ? (c['price'] as num?)?.toDouble()
+                                      : null,
+                                  imageUrl: imageUrl,
                                 ),
-                              );
-                            },
-                          ),
-                        ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                         const SizedBox(height: 12),
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(_courses.length, (i) {
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                width: _pageIndex == i ? 18 : 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: _pageIndex == i
-                                      ? AppColors.primaryGreen
-                                      : AppColors.borderLight,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              );
-                            }),
-                          ),
-                        ),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
-                          child: _showAddForm
-                              ? Padding(
-                                  key: const ValueKey('add-form'),
-                                  padding: const EdgeInsets.only(
-                                    top: 16.0,
-                                    left: 8.0,
-                                    right: 8.0,
-                                  ),
-                                  child: _InlineAddCourse(
-                                    onCreated: () async {
-                                      await _loadCourses();
-                                      if (mounted)
-                                        setState(() => _showAddForm = false);
-                                    },
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
+                          child: const SizedBox.shrink(),
                         ),
                       ],
                     ),
@@ -273,15 +249,9 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
 }
 
-/// Course card used in carousel
+/// Course card used in list
 class _CourseCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -448,18 +418,16 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
                           'application/octet-stream')
                     : 'application/octet-stream');
 
-          late final Uint8List fileBytes;
-
-          if (picked.path != null) {
-            fileBytes = await File(picked.path!).readAsBytes();
-          } else if (picked.bytes != null) {
-            fileBytes = picked.bytes!;
-          } else {
-            throw Exception('Selected file has no path or bytes');
+          // For large uploads we require a file path so we can stream from disk and avoid OOM.
+          if (picked.path == null) {
+            throw Exception(
+              'Thumbnail upload requires a file path. Please re-select the file with in-memory mode disabled.',
+            );
           }
-
-          final fileSize = fileBytes.length;
-          final sha1Hex = sha1.convert(fileBytes).toString();
+          final file = File(picked.path!);
+          final fileSize = await file.length();
+          final sha1Hex = (await sha1.bind(file.openRead()).first).toString();
+          final dataStream = file.openRead();
 
           final payload = {
             'media': {
@@ -489,20 +457,27 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
             final uploadHeaders = {
               if (authTokenHeader != null) 'Authorization': authTokenHeader,
               'Content-Type': 'b2/x-auto',
-              'Content-Length': fileSize,
+              'Content-Length': fileSize.toString(),
               if (mediaPath != null) 'X-Bz-File-Name': mediaPath,
               'X-Bz-Content-Sha1': sha1Hex,
             };
 
             final uploadResponse = await dio.post(
               uploadUrl,
-              data: fileBytes,
+              data: dataStream,
               options: Options(headers: uploadHeaders, contentType: mimeType),
             );
 
             if (uploadResponse.statusCode == null ||
                 uploadResponse.statusCode! < 200 ||
                 uploadResponse.statusCode! >= 300) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Upload failed'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
               throw Exception(
                 'Upload failed with status ${uploadResponse.statusCode}',
               );
@@ -688,6 +663,8 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
                                 final res = await FilePicker.platform.pickFiles(
                                   type: FileType.image,
                                   allowMultiple: false,
+                                  withData: false,
+                                  withReadStream: true,
                                 );
                                 if (res != null && res.files.isNotEmpty) {
                                   setState(() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../constants/AppColors.dart';
-import '../constants/AppSpacing.dart';
-import '../constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 
 /// Course Card Widget
 /// Displays course information in a card format
@@ -13,8 +13,9 @@ class CourseCard extends StatelessWidget {
   final int? price;
   final VoidCallback? onTap;
   final bool isEnrolled;
+  final bool showPrice;
+  final String? assetImagePath;
 
-  // workerToken removed — thumbnails are public now
   const CourseCard({
     super.key,
     required this.title,
@@ -24,6 +25,8 @@ class CourseCard extends StatelessWidget {
     this.price,
     this.onTap,
     this.isEnrolled = false,
+    this.showPrice = true,
+    this.assetImagePath,
   });
 
   @override
@@ -62,7 +65,20 @@ class CourseCard extends StatelessWidget {
                           },
                         ),
                       )
-                    : _buildPlaceholder(),
+                    : (assetImagePath != null
+                          ? ClipRRect(
+                              borderRadius: const BorderRadius.horizontal(
+                                left: Radius.circular(AppSpacing.radiusMD),
+                              ),
+                              child: Image.asset(
+                                assetImagePath!,
+                                fit: BoxFit.cover,
+                                width: 112,
+                                height: 96,
+                                package: null,
+                              ),
+                            )
+                          : _buildPlaceholder()),
               ),
 
               // Right content
@@ -92,14 +108,16 @@ class CourseCard extends StatelessWidget {
                             fontWeight: AppTypography.extraBold,
                           ),
                         )
-                      else
+                      else if (showPrice)
                         Text(
                           'FREE',
                           style: AppTypography.titleLarge.copyWith(
                             color: AppColors.success,
                             fontWeight: AppTypography.extraBold,
                           ),
-                        ),
+                        )
+                      else
+                        const SizedBox.shrink(),
                     ],
                   ),
                 ),

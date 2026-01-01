@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppColors.dart';
-import '../courses/courses_screen.dart';
-import '../courses/my_courses_screen.dart';
-import '../profile/profile_screen.dart';
-import 'explore_screen.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/screens/courses/courses_screen.dart';
+import 'package:dhiraj_ayu_academy/src/screens/courses/my_courses_screen.dart';
+import 'package:dhiraj_ayu_academy/src/screens/profile/profile_screen.dart';
+import 'package:dhiraj_ayu_academy/src/screens/home/explore_screen.dart';
 
 /// Home Screen
 /// Main navigation screen with bottom navigation bar
@@ -20,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget?> _screens = [
     const ExploreScreen(),
     null, // CoursesScreen will be created on-demand
-    const MyCoursesScreen(),
+    null,
     const ProfileScreen(),
   ];
 
@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Only create the screen widget when its tab is selected for the first time
           if (_screens[i] == null && i == _currentIndex) {
             if (i == 1) _screens[i] = CoursesScreen();
+            if (i == 2) _screens[i] = const MyCoursesScreen();
           }
           return _screens[i] ?? const SizedBox.shrink();
         }),

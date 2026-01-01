@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'AppColors.dart';
-import 'AppTypography.dart';
-import 'AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 
 /// App Theme Configuration
 /// Provides consistent theme for light and dark modes

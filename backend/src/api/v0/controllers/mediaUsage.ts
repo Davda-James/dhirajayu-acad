@@ -49,6 +49,31 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
             return res.status(400).json({ message: 'Invalid folder ID', errors: parsed.error.issues });
         }
         const { folderId } = parsed.data;
+        if (req.user.role !== 'ADMIN') {
+            // Verify that the user is enrolled in the course containing this folder
+            const folder = await prisma.moduleFolder.findUnique({
+                where: { id: folderId },
+                include: { module: { select: { course: { select: { id: true, is_paid: true }}}}},
+            });
+            
+            if (!folder) {
+                return res.status(404).json({ message: 'Folder not found' });
+            }
+
+            const course = folder.module.course;
+            if (course.is_paid) {
+                const isEnrolled = await prisma.enrollments.findFirst({
+                    where: {
+                        user_id: req.user.uid!, // Assuming `req.user.id` contains the authenticated user's ID
+                        course_id: course.id,
+                    },
+                });
+                if(!isEnrolled) {
+                    return res.status(403).json({ message: 'Access denied to this folder' });
+                }
+            }
+        }
+
         const usages = await prisma.mediaUsage.findMany({
             where: { module_folder_id: folderId },
             include: { media_asset: true },

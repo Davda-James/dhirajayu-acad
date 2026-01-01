@@ -35,7 +35,8 @@ export async function getAllCourses(req: Request, res: Response) {
                 if (val === 'true' || val === true) return true;
                 if (val === 'false' || val === false) return false;
                 return undefined;
-            }, z.boolean().optional())
+            }, z.boolean().optional()),
+            sort: z.enum(['most_recent', 'most_popular', 'price_asc', 'price_desc', 'a_z', 'z_a']).optional()
     }).strict();
     try {
         const parsedResult = paginationSchema.safeParse(req.query);
@@ -47,11 +48,36 @@ export async function getAllCourses(req: Request, res: Response) {
         const skip = (page - 1) * pageSize;
 
         const whereClause: any = {};
-        console.log(req.query)
         if (typeof is_paid === 'boolean') {
             whereClause.is_paid = is_paid;
         }
-        console.log(whereClause)
+
+        // Determine ordering based on requested sort key
+        const sortKey = parsedResult.data.sort;
+        let orderBy: any = { created_at: 'desc' };
+        if (sortKey) {
+            switch (sortKey) {
+                case 'most_recent':
+                    orderBy = { created_at: 'desc' };
+                    break;
+                case 'most_popular':
+                    // Order by enrollment count desc, then recent
+                    orderBy = [{ enrollments: { _count: 'desc' } }, { created_at: 'desc' }];
+                    break;
+                case 'price_asc':
+                    orderBy = { price: 'asc' };
+                    break;
+                case 'price_desc':
+                    orderBy = { price: 'desc' };
+                    break;
+                case 'a_z':
+                    orderBy = { title: 'asc' };
+                    break;
+                case 'z_a':
+                    orderBy = { title: 'desc' };
+                    break;
+            }
+        }
 
         // Get total count for pagination
             const [total, courses] = await Promise.all([
@@ -60,7 +86,7 @@ export async function getAllCourses(req: Request, res: Response) {
                     where: whereClause,
                     skip,
                     take: pageSize,
-                    orderBy: { created_at: 'desc' },
+                    orderBy,
                     include: {
                         thumbnail: {
                             select: { id: true, media_path: true, mime_type: true }
@@ -476,7 +502,7 @@ export async function fetch_free_courses(req: Request, res: Response) {
     }
 }
 
-async function createRazorpayOrder(amount: number, currency: string, userId: string, courseId: string) {
+async function createRazorpayOrder(amount: number, userId: string, courseId: string, currency: string = 'INR') {
     try {
         const result = await prisma.$transaction(async (prismaTx) => {
             const order = await razorpay.orders.create({
@@ -505,26 +531,36 @@ async function createRazorpayOrder(amount: number, currency: string, userId: str
 export async function buy_course(req: Request, res: Response) {
     const schema = z.object({
         courseId: z.cuid(),
-        amount: z.number().min(1),
-        currency: z.string().length(3),
     }).strict();
     try {
         const parsedResult = schema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid input" });
         }
-        const { courseId, amount, currency } = parsedResult.data;
+        const { courseId } = parsedResult.data;
 
         const course = await prisma.courses.findUnique({ where : { id : courseId } });
         if (!course) {
             return res.status(404).json({ message: "Course not found" });
         }
 
-        // payment logic goes over here
-        const result = await createRazorpayOrder(amount, currency, req.user.uid!, courseId);
+        if (!course.is_paid) {
+            return res.status(400).json({ message: 'Course is free; no purchase required' });
+        }
+
+        // Ensure amount is in smallest currency unit (paise for INR) and matches course price
+        const expectedAmount = (course.price ?? 0) * 100; // convert rupees to paise
+        let finalAmount = expectedAmount;
+        if (expectedAmount <= 0) {
+            return res.status(400).json({ message: 'Course price invalid on server' });
+        }
+
+        // Create order with server-validated amount
+        const result = await createRazorpayOrder(finalAmount, req.user.uid!, courseId);
         return res.status(200).json({
             message: "Razorpay order created",
-            order: result
+            order: result,
+            key: ENV.RAZORPAY_KEY_ID
         });
     } catch (error) {
         return res.status(500).json({ message: "Error processing course purchase" });
@@ -551,6 +587,12 @@ export async function verifyPayment(req: Request, res: Response) {
         if (!order) {
             return res.status(404).json({ message: "Order not found" });
         }
+
+        // Ensure the courseId supplied matches the order's course
+        if (order.course_id !== courseId) {
+            return res.status(400).json({ message: 'Course ID mismatch' });
+        }
+
         // verify signature
         const generatedSignature = crypto.createHmac('sha256', ENV.RAZORPAY_KEY_SECRET)
             .update(order_id + '|' + payment_id)
@@ -573,13 +615,21 @@ export async function verifyPayment(req: Request, res: Response) {
                     paid_at: new Date()
                 }
             });
-            await prismaTx.enrollments.create({
-                data: {
-                    user_id: order.user_id,
-                    course_id: courseId,
-                    enrolled_at: new Date()
+            // Create enrollment
+            try {
+                await prismaTx.enrollments.create({
+                    data: {
+                        user_id: order.user_id,
+                        course_id: courseId,
+                        enrolled_at: new Date()
+                    }
+                });
+            } catch (err: any) {
+                // If unique constraint fails (already enrolled), ignore
+                if (err.code !== 'P2002') {
+                    throw err;
                 }
-            });
+            }
 
             return updatedOrder;
         });
@@ -612,6 +662,73 @@ export async function isLoggedInUserEnrolled(req: Request, res: Response) {
         return res.status(200).json({ enrolled: enrollment !== null });
     } catch (error) {
         return res.status(500).json({ message: "Error fetching course details" });
+    }
+}
+
+export async function getEnrolledCourses(req: Request, res: Response) {
+    try {
+        const enrollments = await prisma.enrollments.findMany({
+            where: { user_id: req.user.uid! },
+            include: {
+                course: {
+                    include: {
+                        thumbnail: {
+                            select: { id: true, media_path: true, mime_type: true }
+                        },
+                    }
+                }
+            }
+        })
+        const free_courses = await prisma.courses.findMany({
+            where: {
+                is_paid: false
+            },
+            include: {
+                thumbnail: {    
+                    select: { id: true, media_path: true, mime_type: true }
+                }
+            }
+        });
+        free_courses.map(c => {
+            const course = { ...c } as any;
+            if (course.thumbnail && course.thumbnail.media_path) {
+                const base = ENV.WORKER_BASE_URL;
+                course.thumbnail_url = `${base}/${course.thumbnail.media_path}`;
+            } else {
+                course.thumbnail_url = null;
+            }
+            delete course.thumbnail;
+            return course.thumbnail;
+        })
+        const mappedEnrolled = enrollments.map(e => {
+            const c: any = { ...e.course };
+            if (c.thumbnail && c.thumbnail.media_path) {
+                const base = ENV.WORKER_BASE_URL;
+                c.thumbnail_url = `${base}/${c.thumbnail.media_path}`;
+            } else {
+                c.thumbnail_url = null;
+            }
+            c.enrolled_at = e.enrolled_at;
+            delete c.thumbnail;
+            return c;
+        });
+
+        const mappedFree = free_courses.map(c => {
+            const course: any = { ...c };
+            if (course.thumbnail && course.thumbnail.media_path) {
+                const base = ENV.WORKER_BASE_URL;
+                course.thumbnail_url = `${base}/${course.thumbnail.media_path}`;
+            } else {
+                course.thumbnail_url = null;
+            }
+            delete course.thumbnail;
+            return course;
+        });
+
+        const all_courses = mappedEnrolled.concat(mappedFree);
+        return res.status(200).json({ courses: all_courses });
+    } catch(error) {
+        return res.status(500).json({ message: "Error fetching enrolled courses" });
     }
 }
 

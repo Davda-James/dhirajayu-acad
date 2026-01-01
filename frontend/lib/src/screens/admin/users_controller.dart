@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 
 class AdminUsersScreen extends StatelessWidget {
   const AdminUsersScreen({super.key});

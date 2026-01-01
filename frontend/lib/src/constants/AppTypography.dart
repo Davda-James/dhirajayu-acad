@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 
 /// Typography System
 /// Clean, readable fonts with proper hierarchy

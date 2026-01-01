@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppSpacing.dart';
-import '../../constants/AppTypography.dart';
-import '../../services/auth_service.dart';
-import '../../widgets/common_widgets.dart';
-import '../support/help_support_screen.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
+import 'package:dhiraj_ayu_academy/src/screens/support/help_support_screen.dart';
 
 /// Profile Screen
 /// User profile and settings
@@ -151,30 +151,5 @@ class AdminProfileScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildStatItem(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: AppTypography.headlineMedium.copyWith(
-            color: AppColors.primaryGreen,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(width: 1, height: 40, color: AppColors.divider);
   }
 }

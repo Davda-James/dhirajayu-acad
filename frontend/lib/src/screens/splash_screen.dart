@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../constants/AppColors.dart';
-import '../constants/AppSpacing.dart';
-import '../constants/AppTypography.dart';
-import '../constants/AppConstants.dart';
-import '../services/auth_service.dart';
-import '../services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppConstants.dart';
+import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
+import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/providers/user_provider.dart';
 import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
 
 /// Splash Screen
 /// Initial screen shown when app launches

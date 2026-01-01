@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'dart:io';
-import '../constants/AppConstants.dart';
-import 'auth_service.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppConstants.dart';
+import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -149,9 +149,13 @@ class ApiService {
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Map<String, String>? extraHeaders,
   }) async {
     try {
       final headers = await _getAuthHeaders();
+      if (extraHeaders != null) {
+        headers.addAll(extraHeaders);
+      }
       return await _dio.get(
         path,
         queryParameters: queryParameters,

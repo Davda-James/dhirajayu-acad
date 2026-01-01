@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createMediaAsset, getMediaAccessToken, listMediaAssets } from '../controllers/mediaAsset';
 import checkRoleIsAdmin from '@v0/middlewares/checkRole';
-import { verifySession } from '../middlewares/verifyToken';
+import { verifySession } from '../middlewares/auth';
 
 const router = Router();
 

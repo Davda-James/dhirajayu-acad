@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '@/shared/db';
 import * as z from 'zod';
+import * as crypto from 'crypto';
 import { cloudflareR2 } from '@v0/services/objectStore';
 
 export async function createFolder(req: Request, res: Response) {
@@ -8,7 +9,7 @@ export async function createFolder(req: Request, res: Response) {
         moduleId: z.cuid(),
         title: z.string().min(1),
         description: z.string().optional(),
-        parentId: z.string().cuid().nullable().optional()
+        parentId: z.cuid().nullable().optional()
     }).strict();
 
     try {
@@ -92,6 +93,24 @@ export async function getFoldersByModule(req: Request, res: Response) {
             return res.status(400).json({ message: "Invalid module ID" });
         }
         const { moduleId } = parsedResult.data;
+        // Quick aggregate to create a lightweight ETag and avoid fetching/building the full tree when unchanged
+        const stats = await prisma.moduleFolder.aggregate({
+            where: { module_id: moduleId },
+            _count: { id: true },
+            _max: { updated_at: true, created_at: true }
+        });
+        const lastTS = stats._max.updated_at ?? stats._max.created_at;
+        const quickSeed = `${stats._count.id}-${lastTS ? lastTS.toISOString() : ''}`;
+        const quickEtag = crypto.createHash('sha1').update(quickSeed).digest('hex');
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch) {
+            if ((typeof ifNoneMatch === 'string' && ifNoneMatch === quickEtag) ||
+                (Array.isArray(ifNoneMatch) && ifNoneMatch.includes(quickEtag))) {
+                // Nothing changed since the last fetch according to aggregate, return 304
+                return res.status(304).end();
+            }
+        }
+
         // Fetch all folders for this module, including parent_id and media usage count
         const folders = await prisma.moduleFolder.findMany({
             where: { module_id: moduleId },
@@ -102,10 +121,99 @@ export async function getFoldersByModule(req: Request, res: Response) {
         });
         // Build recursive tree
         const tree = buildFolderTree(folders, null);
+        res.setHeader('ETag', quickEtag);
         return res.status(200).json({ folders: tree });
     } catch (error) {
         console.error('Get folders error:', error);
         return res.status(500).json({ message: "Error fetching folders" });
+    }
+}
+
+// Get immediate child folders for a given folder
+export async function getFoldersByParent(req: Request, res: Response) {
+    const schema = z.object({
+        parentId: z.cuid()
+    }).strict();
+    try {
+        const parsedResult = schema.safeParse(req.params);
+        if (!parsedResult.success) {
+            return res.status(400).json({ message: "Invalid parent folder ID" });
+        }
+        const { parentId } = parsedResult.data;
+        const children = await prisma.moduleFolder.findMany({
+            where: { parent_id: parentId },
+            include: { _count: { select: { mediaUsages: true } } },
+            orderBy: { created_at: 'asc' }
+        });
+        const mapped = children.map(c => ({
+            id: c.id,
+            moduleId: c.module_id,
+            title: c.title,
+            description: c.description,
+            mediaCount: c._count.mediaUsages,
+            parentId: c.parent_id,
+            createdAt: c.created_at
+        }));
+
+        // Compute ETag for this payload and support conditional GETs
+        const etag = crypto.createHash('sha1').update(JSON.stringify(mapped)).digest('hex');
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch) {
+            if ((typeof ifNoneMatch === 'string' && ifNoneMatch === etag) ||
+                (Array.isArray(ifNoneMatch) && ifNoneMatch.includes(etag))) {
+                return res.status(304).end();
+            }
+        }
+        res.setHeader('ETag', etag);
+
+        return res.status(200).json({ folders: mapped });
+    } catch (error) {
+        console.error('Get child folders error:', error);
+        return res.status(500).json({ message: "Error fetching child folders" });
+    }
+}
+
+// Get root/top-level folders for a module
+export async function getRootFolders(req: Request, res: Response) {
+    const schema = z.object({ moduleId: z.cuid() }).strict();
+    try {
+        const parsed = schema.safeParse(req.params);
+        if (!parsed.success) {
+            return res.status(400).json({ message: "Invalid module ID" });
+        }
+        const { moduleId } = parsed.data;
+
+        const children = await prisma.moduleFolder.findMany({
+            where: { module_id: moduleId, parent_id: null },
+            include: { _count: { select: { mediaUsages: true } } },
+            orderBy: { created_at: 'asc' }
+        });
+
+        const mapped = children.map(c => ({
+            id: c.id,
+            moduleId: c.module_id,
+            title: c.title,
+            description: c.description,
+            mediaCount: c._count.mediaUsages,
+            parentId: c.parent_id,
+            createdAt: c.created_at
+        }));
+
+        // Compute ETag for this payload and support conditional GETs
+        const etag = crypto.createHash('sha1').update(JSON.stringify(mapped)).digest('hex');
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch) {
+            if ((typeof ifNoneMatch === 'string' && ifNoneMatch === etag) ||
+                (Array.isArray(ifNoneMatch) && ifNoneMatch.includes(etag))) {
+                return res.status(304).end();
+            }
+        }
+        res.setHeader('ETag', etag);
+
+        return res.status(200).json({ folders: mapped });
+    } catch (error) {
+        console.error('Get root folders error:', error);
+        return res.status(500).json({ message: "Error fetching root folders" });
     }
 }
 
@@ -115,7 +223,7 @@ export async function updateFolder(req: Request, res: Response) {
         folderId: z.cuid(),
         title: z.string().min(1).optional(),
         description: z.string().optional(),
-        parentId: z.string().cuid().nullable().optional() // allow moving folder
+        parentId: z.cuid().nullable().optional() // allow moving folder
     }).strict();
 
     try {

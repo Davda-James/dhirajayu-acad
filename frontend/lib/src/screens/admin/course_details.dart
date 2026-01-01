@@ -10,13 +10,13 @@ import 'package:mime/mime.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import '../../constants/AppColors.dart';
-import '../../constants/AppTypography.dart';
-import '../../services/api_service.dart';
-import '../../services/media_token_cache.dart';
-import '../../services/media_player_service.dart';
-import '../../widgets/media_player_widget.dart';
-import '../../widgets/add_media_sheet.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
+import 'package:dhiraj_ayu_academy/src/services/media_player_service.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/media_player_widget.dart';
+import 'package:dhiraj_ayu_academy/src/widgets/add_media_sheet.dart';
 
 /// Data structure for navigation stack
 class NavNode {
@@ -997,17 +997,21 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
       final mediaId = up['mediaId'] as String;
       final uploadUrl = up['uploadUrl'] as String;
 
-      Uint8List fileBytes;
-      if (picked.bytes != null) {
-        fileBytes = picked.bytes!;
-      } else if (picked.path != null) {
-        fileBytes = await File(picked.path!).readAsBytes();
-      } else {
-        throw Exception('Selected file has no bytes or path');
+      if (picked.path == null) {
+        throw Exception(
+          'Large file upload requires a file path. Please re-select the file with in-memory mode disabled.',
+        );
       }
 
+      final file = File(picked.path!);
+      final dataStream = file.openRead();
+      final contentLength = await file.length();
+
       final dio = Dio();
-      final uploadHeaders = {'Content-Type': mimeType};
+      final uploadHeaders = {
+        'Content-Type': mimeType,
+        'Content-Length': contentLength.toString(),
+      };
 
       setState(() {
         _isAdding = true;
@@ -1015,16 +1019,31 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
 
       final uploadResp = await dio.put(
         uploadUrl,
-        data: fileBytes,
+        data: dataStream,
         options: Options(headers: uploadHeaders),
-        onSendProgress: (_, __) {},
       );
 
       if (uploadResp.statusCode == null ||
           uploadResp.statusCode! < 200 ||
           uploadResp.statusCode! >= 300) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload failed'),
+            duration: Duration(seconds: 3),
+          ),
+        );
         throw Exception('Upload failed for ${picked.name}');
       }
+
+      // show complete
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Upload complete'),
+          duration: Duration(seconds: 2),
+        ),
+      );
 
       await ApiService().confirmMediaUpload([mediaId]);
 

@@ -1,7 +1,7 @@
 import Router from 'express';
 import { createUser, getAllUsers, getUserProfile, updateUserRole } from '@v0/controllers/user';
 import checkRoleisAdmin from '@v0/middlewares/checkRole';
-import { verifySession } from '@v0/middlewares/verifyToken';
+import { verifySession } from '@/api/v0/middlewares/auth';
 
 const router = Router();
 
