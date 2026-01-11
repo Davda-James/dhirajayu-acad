@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import prisma from '@/shared/db';
 import * as z from 'zod';
 import { cloudflareR2 } from '@/api/v0/services/objectStore';
+import ENV from '@/shared/config/env';
+import { signWithJWT } from '@v0/utils/mediaSigner';
 
 // Create a new media usage (place asset in course/module/folder)
 export async function createMediaUsage(req: Request, res: Response) {
@@ -13,7 +15,7 @@ export async function createMediaUsage(req: Request, res: Response) {
         title: z.string().min(1),
         description: z.string().optional(),
         isFreePreview: z.boolean().optional(),
-        order: z.number().int().optional()
+    order: z.number().int().optional()
     }).strict();
     try {
         const parsed = schema.safeParse(req.body);
@@ -80,6 +82,20 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
             orderBy: { order: 'asc' }
         });
 
+        // Compute simple ETag based on latest updated_at among usages
+        let latest = new Date(0);
+        for (const u of usages) {
+            if (u.updated_at && u.updated_at > latest) latest = u.updated_at;
+        }
+        const etag = `"${latest.getTime()}"`;
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch && ifNoneMatch === etag) {
+            return res.status(304).end();
+        }
+
+        const ttl = ENV.MEDIA_WORKER_TOKEN_TTL_SECONDS;
+        const token = await signWithJWT(req.user.firebase_id, ttl);
+
         // Convert BigInt values to strings to avoid JSON serialization issues
         const sanitizedUsages = usages.map((usage) => ({
             ...usage,
@@ -87,8 +103,14 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
                 ...usage.media_asset,
                 file_size: usage.media_asset?.file_size?.toString() ?? null,
             },
+            media_access: usage.media_asset ? {
+                media_url: `${ENV.WORKER_BASE_URL}/${usage.media_asset.media_path}`,
+                worker_token: token,
+                expires_in: ttl,
+            } : null,
         }));
-        console.log(sanitizedUsages)
+
+        res.setHeader('ETag', etag);
         return res.status(200).json({ usages: sanitizedUsages });
     } catch (error) {
         return res.status(500).json({ message: 'Error fetching media usages' });

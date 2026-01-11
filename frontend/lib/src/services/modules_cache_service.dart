@@ -131,6 +131,62 @@ class ModulesCacheService {
     }
   }
 
+  /// Fetch media usages for a folder (ETag + persisted cache)
+  Future<List<Map<String, dynamic>>> fetchUsages(
+    String folderId, {
+    bool force = false,
+  }) async {
+    final cacheKey = 'usages_$folderId';
+    if (!force && _inMemory.containsKey(cacheKey)) {
+      return _inMemory[cacheKey]!;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final storedEtag = prefs.getString(_etagKey(cacheKey));
+
+    try {
+      final response = await ApiService().get(
+        'media-usages/folder/$folderId',
+        extraHeaders: storedEtag != null ? {'If-None-Match': storedEtag} : null,
+      );
+
+      if (response.statusCode == 304) {
+        final cachedJson = prefs.getString(_cacheKey(cacheKey));
+        if (cachedJson != null) {
+          final List decoded = jsonDecode(cachedJson) as List;
+          final List<Map<String, dynamic>> usages = decoded
+              .cast<Map<String, dynamic>>();
+          _inMemory[cacheKey] = usages;
+          return usages;
+        }
+        return fetchUsages(folderId, force: true);
+      }
+
+      if (response.statusCode == 200) {
+        final etag = response.headers.value('etag');
+        final List<dynamic> usagesRaw = response.data['usages'] ?? [];
+        final List<Map<String, dynamic>> usages = usagesRaw
+            .cast<Map<String, dynamic>>();
+        _inMemory[cacheKey] = usages;
+        await prefs.setString(_cacheKey(cacheKey), jsonEncode(usages));
+        if (etag != null) await prefs.setString(_etagKey(cacheKey), etag);
+        return usages;
+      }
+
+      throw Exception('Unexpected response status: ${response.statusCode}');
+    } catch (e) {
+      final cachedJson = prefs.getString(_cacheKey(cacheKey));
+      if (cachedJson != null) {
+        final List decoded = jsonDecode(cachedJson) as List;
+        final List<Map<String, dynamic>> usages = decoded
+            .cast<Map<String, dynamic>>();
+        _inMemory[cacheKey] = usages;
+        return usages;
+      }
+      rethrow;
+    }
+  }
+
   void invalidate(String moduleId) {
     _inMemory.remove(moduleId);
     SharedPreferences.getInstance().then((prefs) {
@@ -139,12 +195,24 @@ class ModulesCacheService {
     });
   }
 
+  /// Invalidate cached usages for a folder
+  void invalidateUsages(String folderId) {
+    final cacheKey = 'usages_$folderId';
+    _inMemory.remove(cacheKey);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove(_cacheKey(cacheKey));
+      prefs.remove(_etagKey(cacheKey));
+    });
+  }
+
   void invalidateAll() {
     _inMemory.clear();
     SharedPreferences.getInstance().then((prefs) {
       for (final key in prefs.getKeys()) {
         if (key.startsWith('folders_cache_') ||
-            key.startsWith('folders_etag_')) {
+            key.startsWith('folders_etag_') ||
+            key.startsWith('usages_cache_') ||
+            key.startsWith('usages_etag_')) {
           prefs.remove(key);
         }
       }

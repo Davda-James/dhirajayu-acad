@@ -16,13 +16,14 @@ model User {
   id           String        @id @default(cuid())
   firebase_uid String        @unique
   session_id   String        @unique
-  device_id    String        
+  device_id    String
   email        String        @unique
   role         Role          @default(USER)
   last_login   DateTime      @default(now())
   created_at   DateTime      @default(now())
   enrollments  Enrollments[]
   orders       Orders[]
+  testAttempts Attempt[]
 }
 
 enum Role {
@@ -45,6 +46,7 @@ model Courses {
   mediaUsages  MediaUsage[]
   orders       Orders[]
   thumbnail    MediaAsset?   @relation(fields: [thumbnail_id], references: [id], onDelete: SetNull)
+  tests        Test[]
 }
 
 model Modules {
@@ -114,6 +116,7 @@ model MediaAsset {
   updated_at      DateTime     @updatedAt
   mediaUsages     MediaUsage[]
   courses         Courses[]
+  question        Question?
 
   @@index([type])
   @@index([status])
@@ -176,4 +179,83 @@ model Enrollments {
   course      Courses  @relation(fields: [course_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, course_id])
+}
+
+// Test Series
+model Test {
+  id          String   @id @default(cuid())
+  course_id   String
+  title       String   @db.VarChar(255)
+  total_marks Int
+  description String?
+  duration    Int 
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  course       Courses    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  questions    Question[]
+  testAttempts Attempt[]
+}
+
+model Question {
+  id             String    @id @default(cuid())
+  test_id        String
+  image_id       String?   @unique
+  question_text  String
+  option_a       String
+  option_b       String
+  option_c       String
+  option_d       String
+  correct_option MCQOption
+  marks          Int
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  test           Test            @relation(fields: [test_id], references: [id])
+  image          MediaAsset?     @relation(fields: [image_id], references: [id])
+  attemptAnswers AttemptAnswer[]
+
+  @@index([test_id])
+}
+
+enum MCQOption {
+  A
+  B
+  C
+  D
+}
+
+model Attempt {
+  id           String        @id @default(cuid())
+  user_id      String
+  test_id      String
+  score        Int           @default(0)
+  attempted_at DateTime      @default(now())
+  status       AttemptStatus @default(IN_PROGRESS)
+
+  user           User            @relation(fields: [user_id], references: [id])
+  test           Test            @relation(fields: [test_id], references: [id])
+  attemptAnswers AttemptAnswer[]
+
+  @@index([user_id])
+  @@index([test_id])
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model AttemptAnswer {
+  id              String    @id @default(cuid())
+  attempt_id      String
+  question_id     String
+  selected_option MCQOption
+  is_correct      Boolean?
+
+  attempt  Attempt  @relation(fields: [attempt_id], references: [id])
+  question Question @relation(fields: [question_id], references: [id])
+
+  @@unique([attempt_id, question_id])
+  @@index([attempt_id])
 }

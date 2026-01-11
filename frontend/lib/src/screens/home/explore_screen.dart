@@ -114,16 +114,6 @@ class ExploreScreen extends StatelessWidget {
                   child: _buildCategoriesGrid(),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-
-                // Featured Courses Section
-                const SectionHeader(
-                  title: 'Featured Courses',
-                  actionText: 'View All',
-                ),
-                const SizedBox(
-                  height: 200,
-                  child: Center(child: LoadingIndicator()),
-                ),
               ],
             ),
           ),

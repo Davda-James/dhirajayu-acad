@@ -207,6 +207,30 @@ class ApiService {
     }
   }
 
+  /// Make authenticated PUT request
+  Future<Response> put(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      return await _dio.put(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(headers: headers),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        // Session mismatch - user logged in from another device
+        await clearSession();
+        throw Exception('Session expired. Please login again.');
+      }
+      rethrow;
+    }
+  }
+
   /// Request signed upload URLs for course media
   Future<Response> requestUpload(
     String? courseId,

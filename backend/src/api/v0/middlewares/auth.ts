@@ -1,7 +1,7 @@
+
 import type { Request, Response } from "express";
 import { firebaseAdmin } from "@/shared/config/firebase";
 import prisma from "@/shared/db";
-import { decode } from "node:punycode";
 
 export async function verifyToken(req: Request, res: Response, next: Function) {
     try {

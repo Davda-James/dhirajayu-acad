@@ -5,24 +5,15 @@ import { MediaType, MediaStatus, PaymentStatus, OrderStatus } from "@prisma/clie
 import * as z from "zod";
 import ENV from "@/shared/config/env";
 import mime from "mime-types";
-import { SignJWT } from 'jose';
 import { cloudflareR2 } from '@v0/services/objectStore';
 import razorpay from "@/shared/config/razorpay";
 import crypto from "crypto";
-import { signWithJWT } from "../utils/mediaSigner";
+import { courseMediaUpload, imageUploadSchema } from "@/shared/schema/media";
 
 const router = Router();
 
 // Validation constants
 const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1GB
-const ALLOWED_MIME_TYPES = [
-    'video/mp4', 'video/quicktime', 'video/x-msvideo',
-    'audio/mpeg', 'audio/wav', 'audio/ogg',
-    'application/pdf', 'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/jpeg', 'image/png', 'image/webp'
-];
-const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png','image/jpg', 'image/webp'];
 const MAX_BATCH_SIZE = 10;
 
 // has paging
@@ -141,16 +132,49 @@ export async function createCourse(req: Request, res: Response) {
             return res.status(400).json({ message: "Price is required for paid courses" });
         }
 
-        const course = await prisma.courses.create({
-            data: {
+        let course;
+        
+        if (payload.mediaId) {
+            const mediaId = payload.mediaId;
+            
+            const media = await prisma.mediaAsset.findUnique({
+                where: { id: mediaId }
+            })
+            if(!media) {
+                return res.status(404).json({ message: "Media asset not found" });
+            }
+            if (media.status !== MediaStatus.PENDING) {
+                return res.status(400).json({ message: "Invalid media state" });
+            }
+            course = await prisma.$transaction(async (tx) => {
+                const course = await tx.courses.create({
+                    data: {
+                        title: payload.title,
+                        description: payload.description,
+                        is_paid: payload.is_paid,
+                        price: payload.price || null,
+                        thumbnail_id: mediaId || null,
+                        published: false
+                    }
+                });
+                
+                await tx.mediaAsset.update({
+                    where: { id: mediaId },
+                    data: { status: MediaStatus.ACTIVE }
+                })
+                return course;
+            });
+        } else {
+            course = await prisma.courses.create({
+                data: {
                 title: payload.title,
                 description: payload.description,
                 is_paid: payload.is_paid,
-                price: payload.price || null,
-                thumbnail_id: payload.mediaId || null,
-                published: false
-            }
-        });
+                price: payload.price ?? null,
+                published: false,
+                },
+            });
+        } 
 
         return res.status(201).json({
             message: "Course created",
@@ -174,7 +198,7 @@ export async function updateCourse(req: Request, res: Response) {
         title: z.string().min(3).optional(),
         description: z.string().optional(),
         is_paid: z.boolean().optional(),
-        thumbnail_id: z.string().cuid().optional()
+        thumbnail_id: z.cuid().optional()
     }).strict();
 
     try {
@@ -250,20 +274,8 @@ export async function addCourseLessons(req: Request, res: Response) {
 
 // Thumbnail upload controller (no courseId required)
 export async function uploadThumbnail(req: Request, res: Response) {
-    const schema = z.object({
-        media: z.object({
-            fileName: z.string(),
-            fileSize: z.number().max(MAX_FILE_SIZE),
-            mimeType: z.string().refine(val => IMAGE_MIME_TYPES.includes(val)),
-            type: z.literal('IMAGE'),
-            title: z.string().min(1),
-            description: z.string().optional(),
-            duration: z.number().optional()
-        })
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = imageUploadSchema.safeParse(req.body);
         if (!parsedResult.success) {
             console.error('Thumbnail upload validation errors:', parsedResult.error.issues);
             return res.status(400).json({
@@ -319,22 +331,8 @@ function getMediaFolder(mediaType: string): string {
 
 // Admin Media Upload Functions
 export async function requestMediaUpload(req: Request, res: Response) {
-    const schema = z.object({
-        courseId: z.cuid(),
-        moduleId: z.cuid(),
-        moduleFolderId: z.cuid(),
-        media: z.array(z.object({
-            fileName: z.string(),
-            fileSize: z.number().max(MAX_FILE_SIZE),
-            mimeType: z.string().refine(val => ALLOWED_MIME_TYPES.includes(val)),
-            type: z.enum(MediaType),
-            title: z.string().min(1),
-            description: z.string().optional(),
-            duration: z.number().nullable().optional()
-        })).max(MAX_BATCH_SIZE)
-    }).strict();
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = courseMediaUpload.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({
                 message: "Invalid input",

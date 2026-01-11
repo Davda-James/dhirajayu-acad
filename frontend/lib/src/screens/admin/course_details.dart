@@ -14,9 +14,13 @@ import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
 import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
+import 'package:dhiraj_ayu_academy/src/services/modules_cache_service.dart';
 import 'package:dhiraj_ayu_academy/src/services/media_player_service.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/media_player_widget.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/add_media_sheet.dart';
+import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
+import 'package:dhiraj_ayu_academy/src/screens/admin/test_detail_screen.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 
 /// Data structure for navigation stack
 class NavNode {
@@ -66,11 +70,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
       return _mediaFetchInFlight[folderId]!;
     }
 
-    final future = ApiService().getMediaUsagesByFolder(folderId).then((
-      response,
-    ) {
-      final usages = (response.data['usages'] as List)
-          .cast<Map<String, dynamic>>();
+    final future = ModulesCacheService().fetchUsages(folderId).then((usages) {
       _mediaByFolder[folderId] = usages;
       return usages;
     });
@@ -86,6 +86,210 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
   List<NavNode> _navStack = [];
   final Map<String, List<Map<String, dynamic>>> _foldersByModule = {};
   final Map<String, List<Map<String, dynamic>>> _subfoldersByFolder = {};
+
+  // Tests state
+  List<Map<String, dynamic>> _tests = [];
+  bool _isLoadingTests = false;
+  bool _showTests = false;
+
+  Future<void> _fetchTests() async {
+    setState(() => _isLoadingTests = true);
+    try {
+      final tests = await TestService().fetchTestsForCourse(widget.courseId);
+      setState(() => _tests = tests.cast<Map<String, dynamic>>());
+    } catch (e) {
+      setState(() => _tests = []);
+    } finally {
+      setState(() => _isLoadingTests = false);
+    }
+  }
+
+  Future<void> _showAddTestDialog([Map<String, dynamic>? existingTest]) async {
+    final titleCtrl = TextEditingController(
+      text: existingTest != null ? (existingTest['title'] ?? '') : '',
+    );
+    final descCtrl = TextEditingController(
+      text: existingTest != null ? (existingTest['description'] ?? '') : '',
+    );
+    final marksCtrl = TextEditingController(
+      text: existingTest != null
+          ? (existingTest['total_marks']?.toString() ?? '')
+          : '',
+    );
+    final durationCtrl = TextEditingController(
+      text: existingTest != null
+          ? (existingTest['duration']?.toString() ?? '')
+          : '',
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        bool isCreating = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text(existingTest == null ? 'Add Test' : 'Edit Test'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: marksCtrl,
+                  decoration: const InputDecoration(labelText: 'Total Marks'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: durationCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Duration (minutes)',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isCreating
+                    ? null
+                    : () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isCreating
+                    ? null
+                    : () async {
+                        final title = titleCtrl.text.trim();
+                        final totalMarks =
+                            int.tryParse(marksCtrl.text.trim()) ?? 0;
+                        final duration = int.tryParse(durationCtrl.text.trim());
+
+                        // Basic validation on client-side so we fail fast
+                        if (title.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Title is required')),
+                          );
+                          return;
+                        }
+                        if (duration == null || duration <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Duration must be a positive number',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        if (totalMarks < 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Total Marks must be zero or greater',
+                              ),
+                            ),
+                          );
+                        }
+
+                        setState(() => isCreating = true);
+                        try {
+                          if (existingTest == null) {
+                            await TestService()
+                                .createTest({
+                                  'course_id': widget.courseId,
+                                  'title': title,
+                                  'description': descCtrl.text.trim(),
+                                  'total_marks': totalMarks,
+                                  'duration': duration,
+                                })
+                                .timeout(const Duration(seconds: 12));
+                          } else {
+                            final testId = existingTest['id'];
+                            await TestService()
+                                .updateTest(testId.toString(), {
+                                  'title': title,
+                                  'description': descCtrl.text.trim(),
+                                  'total_marks': totalMarks,
+                                  'duration': duration,
+                                })
+                                .timeout(const Duration(seconds: 12));
+                          }
+                          Navigator.pop(context, true);
+                        } on TimeoutException {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Request timed out. Please check your connection and try again.',
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          String msg = existingTest == null
+                              ? 'Failed to create test'
+                              : 'Failed to update test';
+                          if (e is DioException) {
+                            final data = e.response?.data;
+                            if (data is Map && data['message'] != null) {
+                              msg = data['message'];
+                            }
+                            if (data is Map && data['errors'] != null) {
+                              final errs = data['errors'];
+                              if (errs is List) {
+                                final joined = errs
+                                    .map((it) {
+                                      if (it is Map && it['message'] != null)
+                                        return it['message'].toString();
+                                      return it.toString();
+                                    })
+                                    .join('; ');
+                                msg = '$msg: $joined';
+                              }
+                            }
+                          } else {
+                            msg = e.toString();
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(msg)));
+                          }
+                        } finally {
+                          if (mounted) setState(() => isCreating = false);
+                        }
+                      },
+                child: isCreating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(existingTest == null ? 'Create' : 'Update'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result == true) {
+      await _fetchTests();
+    }
+  }
+
   // Cached details for media usages (signed URL, token, etc.) keyed by usage ID
   final Map<String, Map<String, dynamic>> _mediaDetails = {};
   // Track transient initialization errors for media (usageId -> error message)
@@ -1219,18 +1423,18 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
     }
   }
 
-  Future<void> _addMediaToFolder(
-    String folderId,
-    Map<String, dynamic> media,
-  ) async {
-    setState(() {
-      if (_mediaByFolder.containsKey(folderId)) {
-        _mediaByFolder[folderId]!.add(media);
-      } else {
-        _mediaByFolder[folderId] = [media];
-      }
-    });
-  }
+  // Future<void> _addMediaToFolder(
+  //   String folderId,
+  //   Map<String, dynamic> media,
+  // ) async {
+  //   setState(() {
+  //     if (_mediaByFolder.containsKey(folderId)) {
+  //       _mediaByFolder[folderId]!.add(media);
+  //     } else {
+  //       _mediaByFolder[folderId] = [media];
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -1252,8 +1456,52 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBreadcrumb(),
-                const SizedBox(height: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBreadcrumb(),
+                    const SizedBox(height: 8),
+                    // Toggle between Modules and Tests (only at course root)
+                    _navStack.isEmpty
+                        ? Row(
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _showTests = false;
+                                  });
+                                },
+                                child: Text(
+                                  'Modules',
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: _showTests
+                                        ? AppColors.textSecondary
+                                        : AppColors.primaryGreen,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  setState(() {
+                                    _showTests = true;
+                                  });
+                                  // fetch tests for this course
+                                  await _fetchTests();
+                                },
+                                child: Text(
+                                  'Tests',
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: _showTests
+                                        ? AppColors.primaryGreen
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ],
+                ),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
@@ -1290,7 +1538,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
             ),
         ],
       ),
-      floatingActionButton: _navStack.isEmpty
+      floatingActionButton:
+          (_navStack.isEmpty &&
+              ((_showTests && _tests.isNotEmpty) ||
+                  (!_showTests && _modules.isNotEmpty)))
           ? Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               child: SizedBox(
@@ -1307,9 +1558,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
                       vertical: 12,
                     ),
                   ),
-                  onPressed: _isAdding ? null : _showAddModuleDialog,
+                  onPressed: _isAdding
+                      ? null
+                      : () {
+                          if (_showTests) {
+                            _showAddTestDialog();
+                          } else {
+                            _showAddModuleDialog();
+                          }
+                        },
                   icon: const Icon(Icons.add),
-                  label: const Text('Add Module'),
+                  label: Text(_showTests ? 'Add Test' : 'Add Module'),
                 ),
               ),
             )
@@ -1319,7 +1578,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
 
   Widget _buildBreadcrumb() {
     if (_navStack.isEmpty) {
-      return Text('Modules & Content', style: AppTypography.titleMedium);
+      // Show context-sensitive title
+      return Text(
+        _showTests ? 'Tests' : 'Modules & Content',
+        style: AppTypography.titleMedium,
+      );
     }
     List<Widget> crumbs = [];
     crumbs.add(
@@ -1327,6 +1590,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
         onTap: () {
           setState(() {
             _navStack.clear();
+            _showTests = false; // ensure we return to Modules view
           });
         },
         child: Text(
@@ -1364,6 +1628,76 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
 
   Widget _buildContentView() {
     if (_navStack.isEmpty) {
+      // Toggle view: Tests or Modules
+      if (_showTests) {
+        // Show tests list
+        if (_isLoadingTests && _tests.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!_isLoadingTests && _tests.isEmpty) {
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            children: [
+              _buildEmptyState(
+                title: 'No tests yet',
+                subtitle: 'Add your first test using the button below.',
+                primaryAction: _showAddTestDialog,
+                primaryLabel: 'Add Test',
+                primaryIcon: Icons.add,
+                titleStyle: AppTypography.titleLarge.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                subtitleStyle: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+                containerSize: 140,
+                iconSize: 64,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          );
+        }
+
+        return ListView.builder(
+          key: const ValueKey('tests'),
+          itemCount: _tests.length,
+          itemBuilder: (context, idx) {
+            final t = _tests[idx];
+            return ListTile(
+              leading: const Icon(Icons.quiz, color: AppColors.primaryGreen),
+              title: Text(
+                t['title'] ?? 'Test',
+                style: AppTypography.titleMedium,
+              ),
+              subtitle: Text('${t['total_marks']} marks'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminTestDetailScreen(
+                      testId: t['id'],
+                      testTitle: t['title'] ?? 'Test',
+                      test: t,
+                    ),
+                  ),
+                );
+              },
+              trailing: PopupMenuButton<String>(
+                onSelected: (v) async {
+                  if (v == 'edit') {
+                    await _showAddTestDialog(t);
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                ],
+              ),
+            );
+          },
+        );
+      }
+
       // Show modules list
       if (_isLoadingModules && _modules.isEmpty) {
         return const Center(child: CircularProgressIndicator());
@@ -1989,6 +2323,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
           parentId: null,
         ),
       );
+      _showTests = false; // hide Tests view when navigating into a module
     });
   }
 
@@ -2002,6 +2337,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
           parentId: folder['parent_id'],
         ),
       );
+      _showTests = false; // hide Tests view when navigating into a folder
     });
   }
 

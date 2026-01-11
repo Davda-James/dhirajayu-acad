@@ -434,8 +434,6 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
               'fileName': picked.name,
               'fileSize': fileSize,
               'mimeType': mimeType,
-              'type': 'IMAGE',
-              'title': 'thumbnail',
             },
           };
           print('[DEBUG] Thumbnail upload payload:');
@@ -451,11 +449,9 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
             final uploadUrl = upload['uploadUrl'] as String;
             final mediaId = upload['mediaId'] as String;
             final mediaPath = upload['mediaPath'] as String?;
-            final authTokenHeader = upload['authToken'] as String?;
 
             final dio = Dio();
             final uploadHeaders = {
-              if (authTokenHeader != null) 'Authorization': authTokenHeader,
               'Content-Type': 'b2/x-auto',
               'Content-Length': fileSize.toString(),
               if (mediaPath != null) 'X-Bz-File-Name': mediaPath,

@@ -5,6 +5,7 @@ import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
 import 'package:dhiraj_ayu_academy/src/services/modules_cache_service.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/media_player_widget.dart';
+import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
 
 class ModuleContentScreen extends StatefulWidget {
   final String moduleId;
@@ -106,18 +107,15 @@ class _ModuleContentScreenState extends State<ModuleContentScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () => _loadModuleContent(force: true),
-              child: ListView(
-                padding: AppSpacing.screenPaddingHorizontal,
-                children: [
-                  const SizedBox(height: AppSpacing.md),
-                  Text('Folders', style: AppTypography.titleLarge),
-                  const SizedBox(height: AppSpacing.sm),
-                  _buildFolderList(_folders),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-              ),
+          : ListView(
+              padding: AppSpacing.screenPaddingHorizontal,
+              children: [
+                const SizedBox(height: AppSpacing.md),
+                Text('Folders', style: AppTypography.titleLarge),
+                const SizedBox(height: AppSpacing.sm),
+                _buildFolderList(_folders),
+                const SizedBox(height: AppSpacing.md),
+              ],
             ),
     );
   }
@@ -147,17 +145,41 @@ class _FolderContentScreenState extends State<FolderContentScreen> {
     _loadFolder();
   }
 
-  Future<void> _loadFolder() async {
+  Future<void> _loadFolder({bool force = false}) async {
     setState(() => _isLoading = true);
     try {
-      final usagesResp = await ApiService().get(
-        'media-usages/folder/${widget.folderId}',
+      final usagesData = await ModulesCacheService().fetchUsages(
+        widget.folderId,
+        force: force,
       );
       final children = await ModulesCacheService().fetchChildren(
         widget.folderId,
+        force: force,
       );
+
+      // Populate in-memory cache from media_access if provided
+      for (final u in usagesData) {
+        final mediaAccess = u['media_access'];
+        if (mediaAccess != null) {
+          final String usageId = (u['id'] ?? '') as String;
+          if (usageId.isNotEmpty) {
+            final int expiresIn = (mediaAccess['expires_in'] ?? 0) as int;
+            final tokenExpiresAt = DateTime.now()
+                .add(Duration(seconds: expiresIn))
+                .toIso8601String();
+            mediaTokenCache.setDetails(usageId, {
+              'media_url': mediaAccess['media_url'],
+              'worker_token': mediaAccess['worker_token'],
+              'expires_in': expiresIn,
+              'token_expires_at': tokenExpiresAt,
+              'fetched_at': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      }
+
       setState(() {
-        _usages = usagesResp.data['usages'] ?? [];
+        _usages = usagesData;
         _children = children;
         _isLoading = false;
       });

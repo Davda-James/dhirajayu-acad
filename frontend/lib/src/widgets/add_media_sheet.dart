@@ -104,9 +104,7 @@ class _AddMediaSheetState extends State<AddMediaSheet> {
                     ),
                     const SizedBox(height: 8.0),
                     // Show helpful info while picking or when a large file is chosen
-                    if (_chosen != null &&
-                        _chosen!.size != null &&
-                        _chosen!.size > 50 * 1024 * 1024)
+                    if (_chosen != null && _chosen!.size > 50 * 1024 * 1024)
                       Padding(
                         padding: const EdgeInsets.only(top: 6.0, bottom: 6.0),
                         child: Flexible(
