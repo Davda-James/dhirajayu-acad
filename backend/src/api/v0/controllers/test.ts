@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { cloudflareR2 } from '@v0/services/objectStore';
 import { AttemptStatus, MediaStatus, MediaType } from '@prisma/client';
 import { Role } from '@prisma/client';
+import ENV from '@/shared/config/env';
 
 export async function createTest(req: Request, res: Response) {
     console.log("Create test request body:", req.body);
@@ -377,7 +378,7 @@ export async function startTest(req: Request, res: Response) {
 
         const test = await prisma.test.findUnique({
             where: { id: testId },
-            include: { course: true, questions: { omit: { correct_option: true} } }
+            include: { course: true, questions: { include: { image: { select: { media_path: true } } }, omit: { correct_option: true} } }
         });
         if(!test) {
             return res.status(404).json({ message: "Test not found"});

@@ -4,6 +4,8 @@ import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:dhiraj_ayu_academy/src/providers/user_provider.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
 import 'package:dhiraj_ayu_academy/src/screens/support/help_support_screen.dart';
 
@@ -158,6 +160,10 @@ class ProfileScreen extends StatelessWidget {
                     final authService = AuthService();
                     try {
                       await authService.signOut();
+                      Provider.of<UserProvider>(
+                        context,
+                        listen: false,
+                      ).clearProfile();
                       if (context.mounted) {
                         Navigator.of(context).pushReplacementNamed('/login');
                       }

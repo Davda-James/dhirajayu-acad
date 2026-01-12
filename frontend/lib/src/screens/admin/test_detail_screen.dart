@@ -466,7 +466,7 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: AppColors.textOnPrimary,
                                     ),
                                   )
                                 : const Text('Add'),
@@ -990,7 +990,7 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: AppColors.textOnPrimary,
                                     ),
                                   )
                                 : const Text('Save'),

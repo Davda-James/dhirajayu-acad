@@ -44,6 +44,7 @@ export async function getMediaAccessToken(req: Request, res: Response) {
         assetId: z.cuid()
     }).strict(); 
     try {
+        console.log("Generating media access token...");
         const parsed = schema.safeParse(req.params);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid asset ID', errors: parsed.error.issues });

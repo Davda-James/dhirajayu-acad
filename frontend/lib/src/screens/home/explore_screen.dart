@@ -45,50 +45,6 @@ class ExploreScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: AppSpacing.md),
-
-                // Search Bar
-                Padding(
-                  padding: AppSpacing.screenPaddingHorizontal,
-                  child: GestureDetector(
-                    onTap: () {
-                      // TODO: Navigate to search screen
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.md,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundWhite,
-                        borderRadius: AppSpacing.borderRadiusMD,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.shadowLight,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.search,
-                            color: AppColors.textTertiary,
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Text(
-                            'Search courses...',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
                 // Continue Learning Section
                 const SectionHeader(
                   title: 'Continue Learning',

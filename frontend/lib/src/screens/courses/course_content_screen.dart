@@ -4,6 +4,7 @@ import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/cards.dart';
 import 'package:dhiraj_ayu_academy/src/screens/courses/module_content_screen.dart';
+import 'package:dhiraj_ayu_academy/src/screens/tests/tests_list_screen.dart';
 
 class CourseContentScreen extends StatefulWidget {
   final String courseId;
@@ -57,8 +58,34 @@ class _CourseContentScreenState extends State<CourseContentScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
               padding: AppSpacing.screenPaddingAll,
-              itemCount: _modules.length,
+              itemCount: _modules.length + 1,
               itemBuilder: (context, index) {
+                // Last tile is always the Tests tile
+                if (index == _modules.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: CourseCard(
+                      title: 'Tests',
+                      description: 'Practice and evaluate',
+                      thumbnailUrl: null,
+                      assetImagePath: 'assets/icons/app_logo.jpeg',
+                      isPaid: widget.courseDetails['is_paid'] ?? false,
+                      showPrice: false,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TestsListScreen(
+                              courseId: widget.courseId,
+                              courseTitle: widget.courseDetails['title'] ?? '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }
+
                 final module = _modules[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),

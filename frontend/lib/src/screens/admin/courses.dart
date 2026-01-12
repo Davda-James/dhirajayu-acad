@@ -313,7 +313,7 @@ class _CourseCard extends StatelessWidget {
                       Text(
                         title,
                         style: AppTypography.titleMedium.copyWith(
-                          color: Colors.white,
+                          color: AppColors.textOnPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -650,7 +650,7 @@ class _InlineAddCourseState extends State<_InlineAddCourse> {
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryGreen,
-                                foregroundColor: Colors.white,
+                                foregroundColor: AppColors.textOnPrimary,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),

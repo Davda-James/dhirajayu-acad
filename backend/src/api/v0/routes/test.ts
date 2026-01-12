@@ -16,7 +16,7 @@ router.get('/course/:courseId', verifySession, listTestsByCourse);
 router.post('/start/:testId', verifySession, startTest);
 router.get('/:testId/attempts', verifySession, getTestAttempts);
 router.get('/attempt/:attemptId/questions', verifySession, getTestAttemptQuesAns);
-router.get('/attempt/:attemptId/submit', verifySession, submitAttempt);
+router.post('/attempt/:attemptId/submit', verifySession, submitAttempt);
 router.get('/get-questions/:testId', verifySession, checkRoleisAdmin, questionsForTest);
 
 export default router;

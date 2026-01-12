@@ -17,7 +17,6 @@ class ApiService {
       receiveTimeout: const Duration(milliseconds: AppConstants.apiTimeout),
     ),
   );
-
   final AuthService _authService = AuthService();
 
   /// Make authenticated DELETE request
@@ -90,7 +89,6 @@ class ApiService {
     try {
       // Get Firebase ID token
       final idToken = await _authService.getIdToken(forceRefresh: true);
-      print('DEBUG: Got ID token: ${idToken != null ? "YES" : "NO"}');
 
       if (idToken == null) {
         throw Exception('No authentication token available');
@@ -98,7 +96,6 @@ class ApiService {
 
       // Get device ID
       final deviceId = await _getDeviceId();
-
       // Call backend to create/update user session
       final response = await _dio.post(
         'users/create',

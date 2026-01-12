@@ -155,7 +155,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.textOnPrimary,
                       ),
                     )
                   : Text(

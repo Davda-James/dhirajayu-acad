@@ -8,6 +8,8 @@ import 'package:dhiraj_ayu_academy/src/constants/AppConstants.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/buttons.dart';
 import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:dhiraj_ayu_academy/src/providers/user_provider.dart';
 
 /// Login Screen
 /// Authentication screen with Google sign-in
@@ -107,12 +109,20 @@ class _LoginScreenState extends State<LoginScreen>
 
         // Navigate to appropriate screen based on returned role (prefer register response)
         String role = 'USER';
+        Map<String, dynamic>? userObj;
         try {
-          final userObj = sessionResp['user'];
+          userObj = sessionResp['user'];
           if (userObj != null && userObj['role'] != null) {
             role = userObj['role'].toString().toUpperCase();
           }
         } catch (_) {}
+
+        if (userObj != null) {
+          Provider.of<UserProvider>(
+            context,
+            listen: false,
+          ).setProfile(Map<String, dynamic>.from(userObj));
+        }
 
         if (role == 'ADMIN') {
           Navigator.of(context).pushReplacementNamed('/admin');

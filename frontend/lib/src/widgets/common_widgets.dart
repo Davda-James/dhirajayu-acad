@@ -154,7 +154,7 @@ class ErrorState extends StatelessWidget {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                              AppColors.textOnPrimary,
                             ),
                           ),
                         )
@@ -345,6 +345,7 @@ class _ProfileHeaderState extends State<ProfileHeader> {
     final AuthService authService = AuthService();
     final User? currentUser = authService.currentUser;
     final profile = Provider.of<UserProvider>(context).profile;
+    debugPrint(profile.toString());
     final bool isAdmin =
         (profile != null &&
         (profile['role'] ?? '').toString().toUpperCase() == 'ADMIN');

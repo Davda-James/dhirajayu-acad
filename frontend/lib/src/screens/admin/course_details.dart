@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -21,6 +20,7 @@ import 'package:dhiraj_ayu_academy/src/widgets/add_media_sheet.dart';
 import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
 import 'package:dhiraj_ayu_academy/src/screens/admin/test_detail_screen.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 
 /// Data structure for navigation stack
 class NavNode {
@@ -274,7 +274,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppColors.textOnPrimary,
                         ),
                       )
                     : Text(existingTest == null ? 'Create' : 'Update'),

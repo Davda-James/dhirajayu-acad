@@ -1,3 +1,4 @@
+import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -91,7 +92,7 @@ class _AddMediaSheetState extends State<AddMediaSheet> {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation(
-                                  Colors.white,
+                                  AppColors.textOnPrimary,
                                 ),
                               ),
                             )
