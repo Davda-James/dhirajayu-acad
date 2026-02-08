@@ -2,27 +2,28 @@ import { Request, Response } from 'express';
 import prisma from '@/shared/db';
 import * as z from 'zod';
 import { cloudflareR2 } from '@/api/v0/services/objectStore';
-import ENV from '@/shared/config/env';
-import { signWithJWT } from '@v0/utils/mediaSigner';
+import { createMediaUsageSchema, deleteMediaUsageSchema, listMediaUsagesByFolderSchema, updateMediaUsageSchema } from '@/shared/schema/media';
 
 // Create a new media usage (place asset in course/module/folder)
-export async function createMediaUsage(req: Request, res: Response) {
-    const schema = z.object({
-        mediaId: z.cuid(),
-        courseId: z.cuid(),
-        moduleId: z.cuid(),
-        moduleFolderId: z.cuid(),
-        title: z.string().min(1),
-        description: z.string().optional(),
-        isFreePreview: z.boolean().optional(),
-    order: z.number().int().optional()
-    }).strict();
+export async function createMediaUsage(req: Request, res: Response) {    
     try {
-        const parsed = schema.safeParse(req.body);
+        const parsed = createMediaUsageSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid input', errors: parsed.error.issues });
         }
         const { mediaId, courseId, moduleId, moduleFolderId, title, description, isFreePreview, order } = parsed.data;
+        
+        // Auto-assign order if not provided: get max order in folder and increment
+        let finalOrder = order;
+        if (!finalOrder) {
+            const maxOrderUsage = await prisma.mediaUsage.findFirst({
+                where: { module_folder_id: moduleFolderId },
+                orderBy: { order: 'desc' },
+                select: { order: true }
+            });
+            finalOrder = maxOrderUsage ? maxOrderUsage.order + 1 : 0;
+        }
+
         const usage = await prisma.mediaUsage.create({
             data: {
                 media_id: mediaId,
@@ -31,7 +32,7 @@ export async function createMediaUsage(req: Request, res: Response) {
                 module_folder_id: moduleFolderId,
                 title,
                 description: description ?? null,
-                order: order ?? 0
+                order: finalOrder
             }
         });
         return res.status(201).json({ message: 'Media usage created', usage });
@@ -42,11 +43,8 @@ export async function createMediaUsage(req: Request, res: Response) {
 
 // List usages for a folder
 export async function listMediaUsagesByFolder(req: Request, res: Response) {
-    const schema = z.object({
-        folderId: z.cuid()
-    }).strict();
     try {
-        const parsed = schema.safeParse(req.params);
+        const parsed = listMediaUsagesByFolderSchema.safeParse(req.params);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid folder ID', errors: parsed.error.issues });
         }
@@ -93,9 +91,6 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
             return res.status(304).end();
         }
 
-        const ttl = ENV.MEDIA_WORKER_TOKEN_TTL_SECONDS;
-        const token = await signWithJWT(req.user.firebase_id, ttl);
-
         // Convert BigInt values to strings to avoid JSON serialization issues
         const sanitizedUsages = usages.map((usage) => ({
             ...usage,
@@ -103,11 +98,6 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
                 ...usage.media_asset,
                 file_size: usage.media_asset?.file_size?.toString() ?? null,
             },
-            media_access: usage.media_asset ? {
-                media_url: `${ENV.WORKER_BASE_URL}/${usage.media_asset.media_path}`,
-                worker_token: token,
-                expires_in: ttl,
-            } : null,
         }));
 
         res.setHeader('ETag', etag);
@@ -119,15 +109,8 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
 
 // Update a media usage (placement)
 export async function updateMediaUsage(req: Request, res: Response) {
-    const schema = z.object({
-        usageId: z.cuid(),
-        title: z.string().min(1).optional(),
-        description: z.string().optional(),
-        isFreePreview: z.boolean().optional(),
-        order: z.number().int().optional()
-    }).strict();
     try {
-        const parsed = schema.safeParse(req.body);
+        const parsed = updateMediaUsageSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid input', errors: parsed.error.issues });
         }
@@ -155,11 +138,8 @@ export async function updateMediaUsage(req: Request, res: Response) {
 
 // Delete a media usage (placement) and clean up orphaned asset if needed
 export async function deleteMediaUsage(req: Request, res: Response) {
-    const schema = z.object({
-        usageId: z.cuid()
-    }).strict();
     try {
-        const parsed = schema.safeParse(req.params);
+        const parsed = deleteMediaUsageSchema.safeParse(req.params);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid input', errors: parsed.error.issues });
         }

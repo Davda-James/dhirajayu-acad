@@ -98,7 +98,6 @@ export async function getAllCourses(req: Request, res: Response) {
                 delete course.thumbnail;
                 return course;
             });
-            console.log(mapped);
         return res.status(200).json({   
             data: mapped,
             page,
@@ -395,7 +394,6 @@ export async function requestMediaUpload(req: Request, res: Response) {
                 return { createdMediaAsset, mediaUsage };
             });
 
-            console.log('Transaction result:', result);
             if (!result.createdMediaAsset || !result.mediaUsage) {
                 throw new Error('Transaction failed to create media asset or usage');
             }

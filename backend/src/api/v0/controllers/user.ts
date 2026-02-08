@@ -3,6 +3,7 @@ import prisma from '@/shared/db';
 import { Role } from '@prisma/client'
 import crypto from 'crypto';
 import { z } from 'zod';
+import { getAllUsersSchema, updateRoleSchema } from '@/shared/schema/user';
 
 function generateSessionId() {
   return crypto.randomUUID();
@@ -74,7 +75,6 @@ export async function createUser(req: Request, res: Response) {
 
 export async function getUserProfile(req: Request, res: Response) {
     try {
-        console.log('Fetched user:', req.user);
         return res.status(200).json({
             session_id: req.headers['x-session-id'],
             user: {
@@ -90,12 +90,8 @@ export async function getUserProfile(req: Request, res: Response) {
 
 // Admin can promote other users (requires admin role)
 export async function updateUserRole(req: Request, res: Response) {
-    const schema = z.object({
-        role: z.enum(Role)
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = updateRoleSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ 
                 message: "Invalid input",
@@ -122,13 +118,8 @@ export async function updateUserRole(req: Request, res: Response) {
 }
 
 export async function getAllUsers(req: Request, res: Response) {
-    const schema = z.object({
-        page: z.number().int().min(1).optional(),
-        pageSize: z.number().int().min(1).max(50).optional()
-    }).strict()
-
     try {
-        const parsedResult = schema.safeParse(req.query);
+        const parsedResult = getAllUsersSchema.safeParse(req.query);
         if (!parsedResult.success) {
             return res.status(400).json({ 
                 message: "Invalid query parameters",

@@ -253,8 +253,14 @@ class ApiService {
   }
 
   /// Get media access token and URL
-  Future<Map<String, dynamic>> getMediaAccessToken(String assetId) async {
-    final response = await get('media-assets/$assetId/accessToken');
+  Future<Map<String, dynamic>> getMediaAccessToken(
+    String assetId, {
+    String? courseId,
+  }) async {
+    final response = await get(
+      'media-assets/$assetId/accessToken',
+      queryParameters: courseId != null ? {'courseId': courseId} : null,
+    );
     return response.data;
   }
 

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '@/shared/db';
 import * as z from 'zod';
-import { createMediaAssetSchema } from '@/shared/schema/media';
+import { createMediaAssetSchema, mediaAccessTokenSchema, mediaAccessTokenSchemaQuery } from '@/shared/schema/media';
 import ENV from '@/shared/config/env';
 import { signWithJWT } from '@v0/utils/mediaSigner';
 
@@ -40,23 +40,35 @@ export async function listMediaAssets(req: Request, res: Response) {
 }
 
 export async function getMediaAccessToken(req: Request, res: Response) {
-    const schema = z.object({
-        assetId: z.cuid()
-    }).strict(); 
     try {
-        console.log("Generating media access token...");
-        const parsed = schema.safeParse(req.params);
+        const parsed = mediaAccessTokenSchema.safeParse(req.params);
+        const parsedQuery = mediaAccessTokenSchemaQuery.safeParse(req.query);
         if (!parsed.success) {
             return res.status(400).json({ message: 'Invalid asset ID', errors: parsed.error.issues });
         }
+        if (!parsedQuery.success) {
+            return res.status(400).json({ message: 'Invalid query parameters', errors: parsedQuery.error.issues });
+        }
         const { assetId } = parsed.data;
+        const { courseId } = parsedQuery.data;
         const asset = await prisma.mediaAsset.findUnique({ where: { id: assetId } });
         if (!asset) {
             return res.status(404).json({ message: 'Media asset not found' });
         }
+        if(!asset.is_free_preview && req.user.role !== 'ADMIN' && !courseId) {
+            return res.status(400).json({ message: 'Course ID is required for non-free media assets' });
+        }
+        if (courseId) {
+            const course = await prisma.courses.findUnique({
+                where: { id: courseId },
+                select: { id: true }
+            });
+            if (!course) {
+                return res.status(404).json({ message: 'Course not found' });
+            }
+        }
         const userId = req.user.firebase_id;
         const token = await signWithJWT(userId, ENV.MEDIA_WORKER_TOKEN_TTL_SECONDS);
-
         return res.status(200).json({
             media_url: `${ENV.WORKER_BASE_URL}/${asset.media_path}`,
             worker_token: token,

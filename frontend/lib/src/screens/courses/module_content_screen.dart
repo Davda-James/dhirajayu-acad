@@ -5,7 +5,7 @@ import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
 import 'package:dhiraj_ayu_academy/src/services/modules_cache_service.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/media_player_widget.dart';
-import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
+import 'package:dhiraj_ayu_academy/src/utils/common.dart';
 
 class ModuleContentScreen extends StatefulWidget {
   final String moduleId;
@@ -157,27 +157,6 @@ class _FolderContentScreenState extends State<FolderContentScreen> {
         force: force,
       );
 
-      // Populate in-memory cache from media_access if provided
-      for (final u in usagesData) {
-        final mediaAccess = u['media_access'];
-        if (mediaAccess != null) {
-          final String usageId = (u['id'] ?? '') as String;
-          if (usageId.isNotEmpty) {
-            final int expiresIn = (mediaAccess['expires_in'] ?? 0) as int;
-            final tokenExpiresAt = DateTime.now()
-                .add(Duration(seconds: expiresIn))
-                .toIso8601String();
-            mediaTokenCache.setDetails(usageId, {
-              'media_url': mediaAccess['media_url'],
-              'worker_token': mediaAccess['worker_token'],
-              'expires_in': expiresIn,
-              'token_expires_at': tokenExpiresAt,
-              'fetched_at': DateTime.now().toIso8601String(),
-            });
-          }
-        }
-      }
-
       setState(() {
         _usages = usagesData;
         _children = children;
@@ -235,15 +214,14 @@ class _FolderContentScreenState extends State<FolderContentScreen> {
                   final asset = u['media_asset'] ?? {};
                   final String usageId = (u['id'] ?? '') as String;
                   final String assetId = (asset['id'] ?? '') as String;
+                  final String courseId = (u['course_id'] ?? '') as String;
                   final String mediaType =
-                      (u['type'] ?? asset['type'] ?? 'DOCUMENT') as String;
-                  final String title =
-                      u['title'] ?? asset['file_name'] ?? 'Untitled';
-                  final String subtitle =
-                      u['description'] ??
-                      (u['duration'] != null
-                          ? 'Duration: ${u['duration']}s'
-                          : '');
+                      (asset['type'] ?? 'DOCUMENT') as String;
+                  final String title = u['title'];
+                  final int? duration = (asset['duration']) as int?;
+                  final String subtitle = (duration != null
+                      ? 'Duration: ${formatDurationHms(duration)}'
+                      : '');
 
                   return Card(
                     elevation: 2,
@@ -286,9 +264,8 @@ class _FolderContentScreenState extends State<FolderContentScreen> {
                                 child: Center(
                                   child: MediaPlayerWidget(
                                     usageId: usageId,
-                                    assetId: assetId.isNotEmpty
-                                        ? assetId
-                                        : null,
+                                    assetId: assetId,
+                                    courseId: courseId,
                                     type: mediaType,
                                   ),
                                 ),

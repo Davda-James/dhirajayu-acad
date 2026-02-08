@@ -1,19 +1,12 @@
 import { Request, Response } from 'express';
 import prisma from '@/shared/db';
-import * as z from 'zod';
 import * as crypto from 'crypto';
 import { cloudflareR2 } from '@v0/services/objectStore';
+import { createFolderSchema, deleteFolderSchema, getFolderByModuleSchema, getFolderByParentSchema, getRootFoldersSchema, updateFolderSchema } from '@/shared/schema/folder';
 
 export async function createFolder(req: Request, res: Response) {
-    const schema = z.object({
-        moduleId: z.cuid(),
-        title: z.string().min(1),
-        description: z.string().optional(),
-        parentId: z.cuid().nullable().optional()
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = createFolderSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ 
                 message: "Invalid input",
@@ -83,12 +76,8 @@ function buildFolderTree(
 
 // Get Folders by Module (recursive tree)
 export async function getFoldersByModule(req: Request, res: Response) {
-    const schema = z.object({
-        moduleId: z.cuid()
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.params);
+        const parsedResult = getFolderByModuleSchema.safeParse(req.params);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid module ID" });
         }
@@ -131,11 +120,8 @@ export async function getFoldersByModule(req: Request, res: Response) {
 
 // Get immediate child folders for a given folder
 export async function getFoldersByParent(req: Request, res: Response) {
-    const schema = z.object({
-        parentId: z.cuid()
-    }).strict();
     try {
-        const parsedResult = schema.safeParse(req.params);
+        const parsedResult = getFolderByParentSchema.safeParse(req.params);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid parent folder ID" });
         }
@@ -175,9 +161,8 @@ export async function getFoldersByParent(req: Request, res: Response) {
 
 // Get root/top-level folders for a module
 export async function getRootFolders(req: Request, res: Response) {
-    const schema = z.object({ moduleId: z.cuid() }).strict();
     try {
-        const parsed = schema.safeParse(req.params);
+        const parsed = getRootFoldersSchema.safeParse(req.params);
         if (!parsed.success) {
             return res.status(400).json({ message: "Invalid module ID" });
         }
@@ -219,15 +204,8 @@ export async function getRootFolders(req: Request, res: Response) {
 
 // Update Folder (allow moving in tree)
 export async function updateFolder(req: Request, res: Response) {
-    const schema = z.object({
-        folderId: z.cuid(),
-        title: z.string().min(1).optional(),
-        description: z.string().optional(),
-        parentId: z.cuid().nullable().optional() // allow moving folder
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = updateFolderSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ 
                 message: "Invalid input",
@@ -276,11 +254,8 @@ async function getAllDescendantFolderIds(folderId: string): Promise<string[]> {
 
 // Delete Folder (recursive, with orphaned asset cleanup)
 export async function deleteFolder(req: Request, res: Response) {
-    const schema = z.object({
-        folderId: z.cuid()
-    }).strict();
     try {
-        const parsedResult = schema.safeParse(req.params);
+        const parsedResult = deleteFolderSchema.safeParse(req.params);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid folder ID" });
         }

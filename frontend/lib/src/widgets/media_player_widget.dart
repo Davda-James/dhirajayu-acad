@@ -8,7 +8,8 @@ import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
 
 class MediaPlayerWidget extends StatefulWidget {
   final String usageId;
-  final String? assetId;
+  final String assetId;
+  final String? courseId;
   final String type; // 'AUDIO' or 'VIDEO'
   final Map<String, dynamic>? initialDetails;
 
@@ -16,7 +17,8 @@ class MediaPlayerWidget extends StatefulWidget {
     Key? key,
     required this.usageId,
     required this.type,
-    this.assetId,
+    required this.assetId,
+    this.courseId,
     this.initialDetails,
   }) : super(key: key);
 
@@ -49,13 +51,12 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
     // Ensure we have token/details either from initial or by fetching
     if (_details == null) {
       final assetId = widget.assetId;
-      if (assetId != null) {
-        final ok = await mediaTokenCache.ensureTokenForUsage(
-          widget.usageId,
-          assetId: assetId,
-        );
-        if (ok) _details = mediaTokenCache.getDetails(widget.usageId);
-      }
+      final ok = await mediaTokenCache.ensureTokenForUsage(
+        widget.usageId,
+        assetId: assetId,
+        courseId: widget.courseId,
+      );
+      if (ok) _details = mediaTokenCache.getDetails(widget.usageId);
     }
 
     if (_details == null) {
@@ -153,7 +154,7 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
       _loading = true;
     });
     try {
-      if (forceRefresh && widget.assetId != null) {
+      if (forceRefresh) {
         await mediaTokenCache.ensureTokenForUsage(
           widget.usageId,
           assetId: widget.assetId,

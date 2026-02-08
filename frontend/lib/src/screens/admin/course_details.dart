@@ -1,3 +1,4 @@
+import 'package:dhiraj_ayu_academy/src/utils/common.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,21 +7,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:mime/mime.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
-import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
 import 'package:dhiraj_ayu_academy/src/services/modules_cache_service.dart';
-import 'package:dhiraj_ayu_academy/src/services/media_player_service.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/media_player_widget.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/add_media_sheet.dart';
 import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
 import 'package:dhiraj_ayu_academy/src/screens/admin/test_detail_screen.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
-import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 
 /// Data structure for navigation stack
 class NavNode {
@@ -290,662 +285,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
     }
   }
 
-  // Cached details for media usages (signed URL, token, etc.) keyed by usage ID
-  final Map<String, Map<String, dynamic>> _mediaDetails = {};
-  // Track transient initialization errors for media (usageId -> error message)
-  final Map<String, String?> _mediaInitErrors = {};
-
-  // Audio/video players state
-  AudioPlayer? _audioPlayer;
-  Duration _audioPosition = Duration.zero;
-  Duration _audioDuration = Duration.zero;
-  // Current audio URL and token for reuse checks
-  String? _currentAudioUrl;
-  String? _currentAudioToken;
-
-  VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
-  bool _videoInitialized = false;
-  String? _currentPlayingUsageId;
-
-  // Video init guards & playback preservation
-  final Map<String, bool> _videoInitInFlight = {};
-  final Map<String, Duration> _playbackPositions = {};
-  static const Duration _videoInitTimeout = Duration(seconds: 15);
-
-  StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<Duration?>? _durationSub;
-  StreamSubscription<PlayerState>? _playerStateSub;
-
-  // For logging seek/position changes in video
-  Duration _lastVideoLoggedPosition = Duration.zero;
-
-  // Initialize audio player for a usage (smart reuse + headers)
-  Future<void> _initAudioPlayer(
-    String url,
-    String usageId, {
-    String? token,
-  }) async {
-    debugPrint(
-      'audio:init requested usage=$usageId url=$url token=${token != null ? "provided" : "none"}',
-    );
-
-    final existingTs = _mediaDetails[usageId]?['token_expires_at'];
-    final fetchedAt = _mediaDetails[usageId]?['fetched_at'];
-    debugPrint(
-      'audio:init: existing token_expires_at=$existingTs fetched_at=$fetchedAt for $usageId',
-    );
-
-    // Reuse existing player if same source and token
-    if (_currentPlayingUsageId == usageId &&
-        _audioPlayer != null &&
-        _currentAudioUrl == url &&
-        _currentAudioToken == token) {
-      debugPrint('audio:init: reusing existing player for $usageId');
-      _attachAudioListeners(usageId);
-      return;
-    }
-
-    final preservedPosition = _audioPosition;
-
-    // Dispose any existing audio-only resources when switching
-    await _disposeAudioOnly();
-
-    try {
-      // Use shared service to create and initialize the audio player
-      _audioPlayer = await mediaPlayerService.initAudioPlayer(
-        url,
-        token: token,
-      );
-    } on MissingPluginException catch (e) {
-      debugPrint('audio:init: MissingPluginException: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Audio playback is not available in this build.'),
-          ),
-        );
-      }
-      return;
-    } catch (e) {
-      debugPrint('audio:init: AudioPlayer init error: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Audio initialization failed')),
-        );
-      }
-      return;
-    }
-
-    _currentPlayingUsageId = usageId;
-    _currentAudioUrl = url;
-    _currentAudioToken = token;
-    _audioPosition = Duration.zero;
-    _audioDuration = Duration.zero;
-
-    _attachAudioListeners(usageId);
-
-    try {
-      // If the token is expired, refresh and re-create player with new token
-      if (_isTokenExpired(usageId)) {
-        debugPrint('audio:init: token expired for $usageId — refreshing first');
-        final refreshed = await _refreshToken(usageId);
-        if (refreshed) {
-          token = _mediaDetails[usageId]?['worker_token'] as String?;
-          _currentAudioToken = token;
-          debugPrint('audio:init: token refreshed for $usageId');
-
-          // Re-create player with updated token
-          await _audioPlayer?.dispose();
-          _audioPlayer = await mediaPlayerService.initAudioPlayer(
-            url,
-            token: token,
-          );
-          _attachAudioListeners(usageId);
-        } else {
-          debugPrint('audio:init: token refresh failed for $usageId');
-        }
-      }
-
-      // Restore preserved position if needed
-      if (preservedPosition > Duration.zero) {
-        try {
-          await _audioPlayer!.seek(preservedPosition);
-          debugPrint(
-            'audio:init: restored position for $usageId -> $preservedPosition',
-          );
-        } catch (e) {
-          debugPrint('audio:init: failed to restore position for $usageId: $e');
-        }
-      }
-
-      debugPrint('audio:init: initialized successfully for $usageId');
-    } catch (e, st) {
-      debugPrint('audio:init FAILED for $usageId: $e\n$st');
-      _mediaInitErrors[usageId] = e.toString();
-      if (mounted) setState(() {});
-    }
-  }
-
-  // Attach listeners to audio player with debug logs
-  void _attachAudioListeners(String usageId) {
-    _durationSub?.cancel();
-    _positionSub?.cancel();
-    _playerStateSub?.cancel();
-
-    _durationSub = _audioPlayer!.durationStream.listen((d) {
-      _audioDuration = d ?? Duration.zero;
-      debugPrint('audio: duration for $usageId = $_audioDuration');
-      if (mounted) setState(() {});
-    });
-
-    _positionSub = _audioPlayer!.positionStream.listen((p) {
-      if ((p - _audioPosition).abs() > const Duration(seconds: 2)) {
-        debugPrint(
-          'audio: position jump for $usageId from $_audioPosition to $p',
-        );
-      }
-      _audioPosition = p;
-      if (mounted) setState(() {});
-    });
-
-    _playerStateSub = _audioPlayer!.playerStateStream.listen(
-      (s) {
-        debugPrint(
-          'audio: playerState for $usageId = ${s.processingState} playing=${s.playing}',
-        );
-        if (s.processingState == ProcessingState.completed) {
-          debugPrint('audio: completed $usageId');
-        }
-        if (mounted) setState(() {});
-      },
-      onError: (e) {
-        debugPrint('audio: playerStateStream error for $usageId: $e');
-      },
-    );
-  }
-
-  // Dispose only audio controllers (used internally)
-  Future<void> _disposeAudioOnly() async {
-    try {
-      await _positionSub?.cancel();
-      await _durationSub?.cancel();
-      await _playerStateSub?.cancel();
-    } catch (_) {}
-    _positionSub = null;
-    _durationSub = null;
-    _playerStateSub = null;
-
-    try {
-      await _audioPlayer?.dispose();
-    } catch (e) {
-      debugPrint('audio: dispose error: $e');
-    }
-    _audioPlayer = null;
-    _currentAudioUrl = null;
-    _currentAudioToken = null;
-    _audioPosition = Duration.zero;
-    _audioDuration = Duration.zero;
-  }
-
-  // Retry audio init: refresh token if expired or forced and preserve position
-  Future<void> _retryAudioInit(
-    String usageId, {
-    bool forceRefresh = false,
-  }) async {
-    debugPrint('audio:retry requested for $usageId forceRefresh=$forceRefresh');
-    final details = _mediaDetails[usageId];
-    if (details == null) {
-      debugPrint('audio:retry: no mediaDetails for $usageId');
-      _mediaInitErrors[usageId] = 'No media details';
-      if (mounted) setState(() {});
-      return;
-    }
-
-    if (forceRefresh || _isTokenExpired(usageId)) {
-      final ok = await _refreshToken(usageId);
-      debugPrint('audio:retry: refresh result for $usageId = $ok');
-      if (!ok) {
-        _mediaInitErrors[usageId] = 'Token refresh failed';
-        if (mounted) setState(() {});
-        return;
-      }
-    }
-
-    final url = _mediaDetails[usageId]!['media_url'] as String?;
-    final token = _mediaDetails[usageId]!['worker_token'] as String?;
-    if (url == null) {
-      _mediaInitErrors[usageId] = 'Media URL missing';
-      if (mounted) setState(() {});
-      return;
-    }
-
-    final pos = _audioPlayer?.position ?? _audioPosition;
-    await _initAudioPlayer(url, usageId, token: token);
-    if (_audioPlayer != null && pos > Duration.zero) {
-      try {
-        await _audioPlayer!.seek(pos);
-        debugPrint('audio:retry: seeked to $pos for $usageId');
-      } catch (e) {
-        debugPrint('audio:retry: seek failed for $usageId: $e');
-      }
-    }
-    _mediaInitErrors.remove(usageId);
-    if (mounted) setState(() {});
-  }
-
-  // Initialize video player for a usage
-  Future<void> _initVideoPlayer(
-    String url,
-    String usageId, {
-    String? token,
-  }) async {
-    // Prevent concurrent inits for same usage
-    if (_videoInitInFlight[usageId] == true) {
-      return;
-    }
-    _videoInitInFlight[usageId] = true;
-
-    // If already initialized and healthy, reuse
-    try {
-      if (_currentPlayingUsageId == usageId &&
-          _videoController != null &&
-          _videoController!.value.isInitialized &&
-          !_videoController!.value.hasError) {
-        if (_chewieController == null) {
-          _chewieController = ChewieController(
-            videoPlayerController: _videoController!,
-            autoPlay: false,
-            looping: false,
-            showControls: true,
-          );
-        }
-        _videoInitInFlight.remove(usageId);
-        return;
-      }
-
-      // preserve position if switching
-      Duration? preservedPosition = _playbackPositions[usageId];
-
-      // Dispose previous only if switching to different usage
-      await _disposeMediaControllers();
-      _mediaInitErrors.remove(usageId);
-      _currentPlayingUsageId = usageId;
-
-      // Preflight probe to verify the media URL and token (small-range GET)
-      try {
-        final probeStatus = await _probeMediaUrl(url, token: token);
-        if (probeStatus == 401) {
-          // token likely invalid/expired: try refresh and re-probe
-          final refreshed = await _refreshToken(usageId);
-          if (refreshed) {
-            final newToken = _mediaDetails[usageId]?['worker_token'] as String?;
-            final newUrl =
-                _mediaDetails[usageId]?['media_url'] as String? ?? url;
-            final probe2 = await _probeMediaUrl(newUrl, token: newToken);
-            if (probe2 >= 400) {
-              _mediaInitErrors[usageId] = 'Probe failed with status $probe2';
-              if (mounted) setState(() {});
-              _videoInitInFlight.remove(usageId);
-              return;
-            }
-            // swap to new values
-            url = newUrl;
-            token = newToken;
-          } else {
-            _mediaInitErrors[usageId] = 'Token refresh failed during probe';
-            if (mounted) setState(() {});
-            _videoInitInFlight.remove(usageId);
-            return;
-          }
-        } else if (probeStatus >= 400) {
-          _mediaInitErrors[usageId] = 'Probe failed with status $probeStatus';
-          if (mounted) setState(() {});
-          _videoInitInFlight.remove(usageId);
-          return;
-        }
-      } catch (e) {
-        _mediaInitErrors[usageId] = 'Probe error: $e';
-        if (mounted) setState(() {});
-        _videoInitInFlight.remove(usageId);
-        return;
-      }
-
-      final initFuture = () async {
-        try {
-          // Use shared MediaPlayerService to initialize controller (handles headers)
-          _videoController = await mediaPlayerService.initVideoController(
-            url,
-            token: token,
-          );
-
-          // attach listener via the shared helper but keep UI-side handling here
-          mediaPlayerService.attachVideoListener(_videoController!, (
-            pos,
-            dur,
-            isBuffering,
-            hasError,
-          ) {
-            try {
-              if ((pos - _lastVideoLoggedPosition).inSeconds.abs() > 2 ||
-                  isBuffering ||
-                  hasError) {
-                debugPrint(
-                  'videoController.listener: usage=$usageId pos=$pos dur=$dur isBuffering=$isBuffering hasError=$hasError',
-                );
-                _lastVideoLoggedPosition = pos;
-              }
-
-              // Detect playback completion
-              if (!isBuffering &&
-                  !hasError &&
-                  dur > Duration.zero &&
-                  pos >= dur - const Duration(milliseconds: 500)) {
-                debugPrint(
-                  'videoController.listener: playback complete detected for usage=$usageId pos=$pos dur=$dur',
-                );
-              }
-
-              // If an error is observed by the controller, kick off automatic retry flow
-              if (hasError) {
-                debugPrint(
-                  'videoController.listener: detected hasError for usage=$usageId; scheduling automatic retry',
-                );
-                _handleVideoPlaybackError(usageId);
-              }
-            } catch (e) {
-              debugPrint(
-                'videoController.listener: exception for usage=$usageId: $e',
-              );
-            }
-          });
-
-          // create chewie controller
-          _chewieController = ChewieController(
-            videoPlayerController: _videoController!,
-            autoPlay: false,
-            looping: false,
-            showControls: true,
-            allowFullScreen: true,
-            allowedScreenSleep: false,
-            materialProgressColors: ChewieProgressColors(
-              playedColor: AppColors.primaryGreen,
-              handleColor: AppColors.primaryGreen,
-            ),
-          );
-
-          // restore position if any
-          if (preservedPosition != null && _videoController != null) {
-            try {
-              debugPrint(
-                'initVideoPlayer: restoring position to $preservedPosition for $usageId',
-              );
-              await _videoController!.seekTo(preservedPosition);
-            } catch (e) {
-              debugPrint(
-                'initVideoPlayer: failed to restore position for $usageId: $e',
-              );
-            }
-          }
-
-          _videoInitialized = true;
-        } catch (e, st) {
-          debugPrint('initVideoPlayer (inner) FAILED for $usageId: $e\n$st');
-          rethrow;
-        }
-      }();
-
-      // apply timeout
-      await initFuture.timeout(_videoInitTimeout);
-      _mediaInitErrors.remove(usageId);
-      if (mounted) setState(() {});
-    } on TimeoutException catch (_) {
-      final msg = 'Video initialization timeout';
-      _mediaInitErrors[usageId] = msg;
-      if (mounted) setState(() {});
-    } catch (e, _) {
-      final msg = e.toString();
-      _mediaInitErrors[usageId] = msg;
-      if (mounted) setState(() {});
-    } finally {
-      _videoInitInFlight.remove(usageId);
-    }
-  }
-
-  Future<void> _disposeMediaControllers() async {
-    // preserve playback pos for current usage before disposing
-    if (_videoController != null && _currentPlayingUsageId != null) {
-      try {
-        final pos = _videoController!.value.position;
-        _playbackPositions[_currentPlayingUsageId!] = pos;
-      } catch (e) {
-        debugPrint('_disposeMediaControllers: failed to read position: $e');
-      }
-    }
-    try {
-      await _positionSub?.cancel();
-    } catch (_) {}
-    try {
-      await _durationSub?.cancel();
-    } catch (_) {}
-    try {
-      await _playerStateSub?.cancel();
-    } catch (_) {}
-    _positionSub = null;
-    _durationSub = null;
-    _playerStateSub = null;
-
-    try {
-      if (_audioPlayer != null) {
-        try {
-          await _audioPlayer!.stop();
-        } catch (_) {}
-        try {
-          await _audioPlayer!.dispose();
-        } catch (_) {}
-        _audioPlayer = null;
-      }
-    } catch (_) {}
-    try {
-      if (_chewieController != null) {
-        try {
-          _chewieController!.pause();
-        } catch (_) {}
-        try {
-          _chewieController!.dispose();
-        } catch (_) {}
-        _chewieController = null;
-      }
-    } catch (_) {}
-    try {
-      if (_videoController != null) {
-        await _videoController!.pause();
-        await _videoController!.dispose();
-        _videoController = null;
-        _videoInitialized = false;
-      }
-    } catch (e) {
-      debugPrint(
-        '_disposeMediaControllers: error while disposing video controller: $e',
-      );
-    }
-    _audioDuration = Duration.zero;
-    _audioPosition = Duration.zero;
-    _currentPlayingUsageId = null;
-  }
-
-  // --- Token and retry helpers ---
-  bool _isTokenExpired(String usageId) {
-    final details = _mediaDetails[usageId];
-    if (details == null) {
-      return true;
-    }
-    final ts = details['token_expires_at'] as String?;
-    if (ts == null) {
-      return true;
-    }
-    try {
-      final exp = DateTime.parse(ts);
-      final now = DateTime.now();
-      // Consider token expired if within 30s of expiry
-      final isExpired = now.add(const Duration(seconds: 30)).isAfter(exp);
-      return isExpired;
-    } catch (_) {
-      debugPrint(
-        '_isTokenExpired: parse error for token_expires_at=$ts -> expired',
-      );
-      return true;
-    }
-  }
-
-  Future<bool> _refreshToken(String usageId) async {
-    // Delegate token refresh to centralized cache/service
-    final assetId = _getAssetIdForUsage(usageId);
-    if (assetId == null) {
-      debugPrint('_refreshToken: assetId not found for $usageId');
-      return false;
-    }
-
-    final ok = await mediaTokenCache.ensureTokenForUsage(
-      usageId,
-      assetId: assetId,
-    );
-    if (!ok) return false;
-
-    final details = mediaTokenCache.getDetails(usageId);
-    if (details != null) {
-      _mediaDetails[usageId] = {...?_mediaDetails[usageId], ...details};
-    }
-
-    debugPrint('_refreshToken: delegated to MediaTokenCache for $usageId');
-    return true;
-  }
-
-  String? _getAssetIdForUsage(String usageId) {
-    for (final entry in _mediaByFolder.entries) {
-      for (final u in entry.value) {
-        if (u['id'] == usageId) {
-          return (u['media_asset']?['id'] ?? u['media_id'])?.toString();
-        }
-      }
-    }
-    return null;
-  }
-
-  // Probe a media URL with a small-range GET to validate token and range handling
-  Future<int> _probeMediaUrl(String url, {String? token}) async {
-    try {
-      final dio = Dio();
-      final headers = <String, dynamic>{
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-        'Range': 'bytes=0-1023',
-      };
-      final resp = await dio.get(
-        url,
-        options: Options(headers: headers, validateStatus: (_) => true),
-      );
-      try {
-        // Log final URI after following redirects (helps detect http://127.0.0.1 redirects)
-        final finalUri = (resp.realUri.toString());
-        debugPrint(
-          '_probeMediaUrl: status=${resp.statusCode} finalUri=$finalUri for url=$url',
-        );
-      } catch (e) {
-        debugPrint(
-          '_probeMediaUrl: status=${resp.statusCode} (failed to read finalUri): $e',
-        );
-      }
-      return resp.statusCode ?? 0;
-    } catch (e) {
-      debugPrint('_probeMediaUrl: exception for url=$url -> $e');
-      rethrow;
-    }
-  }
-
-  final Map<String, int> _videoRetryCounts = {};
-  static const int _maxVideoRetries = 3;
-
-  Future<void> _handleVideoPlaybackError(String usageId) async {
-    final count = _videoRetryCounts[usageId] ?? 0;
-    if (count >= _maxVideoRetries) {
-      _mediaInitErrors[usageId] = 'Playback error: exceeded automatic retries';
-      if (mounted) setState(() {});
-      return;
-    }
-
-    _videoRetryCounts[usageId] = count + 1;
-
-    // If token expired, refresh first
-    if (_isTokenExpired(usageId)) {
-      final refreshed = await _refreshToken(usageId);
-      if (!refreshed) {
-        _mediaInitErrors[usageId] = 'Token refresh failed';
-        if (mounted) setState(() {});
-        return;
-      }
-    }
-
-    // Attempt to re-init (keeps playback position)
-    await _retryVideoInit(usageId);
-  }
-
-  Future<void> _retryVideoInit(String usageId) async {
-    final details = _mediaDetails[usageId];
-    if (details == null) {
-      _mediaInitErrors[usageId] = 'No cached media details';
-      if (mounted) setState(() {});
-      return;
-    }
-
-    _mediaInitErrors.remove(usageId);
-    if (mounted) setState(() {});
-
-    final tokenExpired = _isTokenExpired(usageId);
-    if (tokenExpired) {
-      final refreshed = await _refreshToken(usageId);
-      if (!refreshed) {
-        _mediaInitErrors[usageId] = 'Token refresh failed';
-        if (mounted) setState(() {});
-        return;
-      }
-    }
-
-    final url = _mediaDetails[usageId]!['media_url'] as String?;
-    final token = _mediaDetails[usageId]!['worker_token'] as String?;
-    if (url == null) {
-      _mediaInitErrors[usageId] = 'Media URL missing';
-      if (mounted) setState(() {});
-      return;
-    }
-
-    Duration? pos;
-    try {
-      pos = _videoController?.value.position;
-    } catch (_) {
-      pos = _playbackPositions[usageId];
-    }
-
-    try {
-      await _initVideoPlayer(url, usageId, token: token);
-      if (_videoController != null && pos != null) {
-        try {
-          await _videoController!.seekTo(pos);
-        } catch (e) {
-          debugPrint('_retryVideoInit: seek failed for $usageId: $e');
-        }
-      }
-      _mediaInitErrors.remove(usageId);
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('_retryVideoInit: init failed for $usageId: $e');
-      _mediaInitErrors[usageId] = e.toString();
-      if (mounted) setState(() {});
-    }
-  }
-
   @override
   void dispose() {
-    _disposeMediaControllers();
     super.dispose();
   }
 
@@ -2025,123 +1366,51 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
         }
       } else if (node.type == 'media') {
         // Inline media detail view (keeps AppBar & breadcrumb intact)
-        final details = _mediaDetails[node.id];
-        return FutureBuilder<void>(
-          future: details == null
-              ? () async {
-                  // Try to find assetId from cached media usages if details missing
-                  String? foundAssetId;
-                  _mediaByFolder.forEach((folderId, usages) {
-                    for (final u in usages) {
-                      if (u['id'] == node.id) {
-                        foundAssetId =
-                            (u['media_asset']?['id'] ?? u['media_id'])
-                                ?.toString();
-                        break;
-                      }
-                    }
-                  });
-                  if (foundAssetId != null) {
-                    final resp = await ApiService().getMediaAccessToken(
-                      foundAssetId!,
-                    );
-                    final tokenExpires = resp['expires_in'] != null
-                        ? DateTime.now().add(
-                            Duration(seconds: resp['expires_in']),
-                          )
-                        : null;
-                    _mediaDetails[node.id] = {
-                      'media_url': resp['media_url'],
-                      'worker_token': resp['worker_token'],
-                      'expires_in': resp['expires_in'],
-                      'token_expires_at': tokenExpires?.toIso8601String(),
-                      'fetched_at': DateTime.now().toIso8601String(),
-                      'title': node.title,
-                    };
-                  }
-                }()
-              : null,
-          builder: (context, snap) {
-            final d = _mediaDetails[node.id];
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+        // Find media details from cached usages
+        String? foundAssetId;
+        String? foundType;
+        int? foundDuration;
+
+        _mediaByFolder.forEach((folderId, usages) {
+          for (final u in usages) {
+            if (u['id'] == node.id) {
+              final asset = u['media_asset'] ?? {};
+              foundAssetId = asset['id']?.toString();
+              foundType = asset['type']?.toString();
+              foundDuration = asset['duration'] as int?;
+              break;
             }
-            if (d == null) {
-              return Center(child: Text('Media details not available'));
-            }
+          }
+        });
 
-            // Player initialization is now handled by MediaPlayerWidget for both AUDIO and VIDEO.
-            // The widget will probe/init and handle token refresh/retries as needed.
-            // (kept here for reference; initialization removed from screen-level.)
+        if (foundAssetId == null) {
+          return const Center(child: Text('Media details not found'));
+        }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    d['title'] ?? node.title,
-                    style: AppTypography.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Type: ${d['type'] ?? ''}',
-                    style: AppTypography.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  if (d['duration'] != null)
-                    Text(
-                      'Duration: ${d['duration']} seconds',
-                      style: AppTypography.bodyMedium,
-                    ),
-                  const SizedBox(height: 12),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(node.title, style: AppTypography.titleLarge),
+              const SizedBox(height: 12),
+              if (foundType != null)
+                Text('Type: $foundType', style: AppTypography.bodyMedium),
+              const SizedBox(height: 8),
+              if (foundDuration != null)
+                Text(
+                  'Duration: ${formatDurationHms(foundDuration!)}',
+                  style: AppTypography.bodyMedium,
+                ),
+              const SizedBox(height: 12),
 
-                  // Player UI
-                  if (d['media_url'] != null && d['type'] == 'AUDIO') ...[
-                    MediaPlayerWidget(
-                      usageId: node.id,
-                      assetId: (d['media_asset']?['id'] ?? d['media_id'])
-                          ?.toString(),
-                      type: 'AUDIO',
-                      initialDetails: d,
-                    ),
-                  ] else if (d['media_url'] != null &&
-                      d['type'] == 'VIDEO') ...[
-                    MediaPlayerWidget(
-                      usageId: node.id,
-                      assetId: (d['media_asset']?['id'] ?? d['media_id'])
-                          ?.toString(),
-                      type: 'VIDEO',
-                      initialDetails: d,
-                    ),
-
-                    const SizedBox(height: 12),
-                    if (d['media_url'] != null)
-                      SelectableText(
-                        d['media_url'] ?? '',
-                        style: AppTypography.bodySmall,
-                      ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: d['media_url'] == null
-                          ? null
-                          : () {
-                              Clipboard.setData(
-                                ClipboardData(text: d['media_url']),
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Media URL copied'),
-                                ),
-                              );
-                            },
-                      child: const Text('Copy media URL'),
-                    ),
-                  ],
-                ],
+              MediaPlayerWidget(
+                usageId: node.id,
+                assetId: foundAssetId!,
+                type: foundType ?? 'UNKNOWN',
               ),
-            );
-          },
+            ],
+          ),
         );
       } else if (node.type == 'folder') {
         // Show subfolders and media in this folder
@@ -2560,17 +1829,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
   }
 
   Widget _buildMediaCard(Map<String, dynamic> mediaObj, String folderId) {
-    // Prefer usage ID for delete, asset ID for playback
     final String? usageId = mediaObj['usageId'] as String?;
-    final String? assetId = mediaObj['assetId'] as String?;
     final String mediaUsageId = usageId ?? '';
-    final String mediaAssetId = assetId ?? '';
 
-    final String mediaTitle =
-        mediaObj['title'] ?? mediaObj['fileName'] ?? 'Unknown Media';
-    final String mediaType = mediaObj['type'] ?? 'Unknown';
+    final String mediaTitle = mediaObj['title'];
+    final String mediaType = mediaObj['type'];
     final String mediaDuration = mediaObj['duration'] != null
-        ? 'Duration: ${mediaObj['duration']} seconds'
+        ? '${formatDurationHms(mediaObj['duration'])}'
         : '';
 
     return Card(
@@ -2578,26 +1843,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        onTap: () async {
-          if (mediaAssetId.isNotEmpty) {
-            try {
-              final resp = await ApiService().getMediaAccessToken(mediaAssetId);
-              _mediaDetails[mediaUsageId] = {
-                'media_url': resp['media_url'],
-                'worker_token': resp['worker_token'],
-                'expires_in': resp['expires_in'],
-                'token_expires_at': resp['expires_in'] != null
-                    ? DateTime.now()
-                          .add(Duration(seconds: resp['expires_in']))
-                          .toIso8601String()
-                    : null,
-                'fetched_at': DateTime.now().toIso8601String(),
-                'title': mediaTitle,
-                'type': mediaType,
-                'duration': mediaObj['duration'],
-              };
-            } catch (e) {}
-          }
+        onTap: () {
           setState(() {
             _navStack.add(
               NavNode(

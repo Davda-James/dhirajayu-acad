@@ -6,7 +6,8 @@ class MediaTokenCache {
 
   Future<bool> ensureTokenForUsage(
     String usageId, {
-    String? assetId,
+    required String assetId,
+    String? courseId,
     bool forceRefresh = false,
   }) async {
     final existing = _cache[usageId];
@@ -36,16 +37,11 @@ class MediaTokenCache {
       }
     }
 
-    // Need assetId for fetch
-    if (assetId == null) {
-      debugPrint(
-        'MediaTokenCache: assetId required to refresh token for $usageId',
-      );
-      return false;
-    }
-
     try {
-      final resp = await ApiService().getMediaAccessToken(assetId);
+      final resp = await ApiService().getMediaAccessToken(
+        assetId,
+        courseId: (courseId != null && courseId.isNotEmpty) ? courseId : null,
+      );
       final tokenExpires = resp['expires_in'] != null
           ? DateTime.now().add(Duration(seconds: resp['expires_in']))
           : null;

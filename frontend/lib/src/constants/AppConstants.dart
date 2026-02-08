@@ -9,7 +9,7 @@ class AppConstants {
 
   // API Configuration
   static const String apiBaseUrl =
-      'http://172.16.23.238:3000/api'; // Update with your backend URL
+      'https://149-56-143-48.nip.io/api'; // Update with your backend URL
   static const String apiVersion = 'v0';
   static const int apiTimeout = 30000; // 30 seconds
 
@@ -26,7 +26,7 @@ class AppConstants {
   // Image/Video Configuration
   static const double thumbnailAspectRatio = 16 / 9;
   static const int maxImageSizeMB = 5;
-static const int videoQualityOptions = 720;
+  static const int videoQualityOptions = 720;
 
   // Form Validation
   static const int minPasswordLength = 8;

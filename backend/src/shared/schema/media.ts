@@ -45,3 +45,39 @@ export const courseMediaUpload = z.object({
     })).max(MAX_BATCH_SIZE)
 }).strict();
 
+export const mediaAccessTokenSchema = z.object({
+    assetId: z.cuid(),
+}).strict();
+
+export const mediaAccessTokenSchemaQuery = z.object({
+    courseId: z.cuid().optional()
+}).strict();
+
+export const createMediaUsageSchema = z.object({
+    mediaId: z.cuid(),
+    courseId: z.cuid(),
+    moduleId: z.cuid(),
+    moduleFolderId: z.cuid(),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    isFreePreview: z.boolean().optional(),
+    order: z.number().int().optional()
+}).strict();
+
+export const listMediaUsagesByFolderSchema = z.object({
+    folderId: z.cuid()
+}).strict();
+
+export const updateMediaUsageSchema = z.object({
+    usageId: z.cuid(),
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    isFreePreview: z.boolean().optional(),
+    order: z.number().int().optional()
+}).strict();
+
+export const deleteMediaUsageSchema = z.object({
+    usageId: z.cuid()
+}).strict();
+
+

@@ -188,7 +188,7 @@ model Test {
   title       String   @db.VarChar(255)
   total_marks Int
   description String?
-  duration    Int 
+  duration    Int
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
