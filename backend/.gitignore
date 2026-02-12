@@ -1,6 +1,5 @@
 .env
 /src/test_data
 node_modules/
-prisma/migrations/
 dist/
 secrets/

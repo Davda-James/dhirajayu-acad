@@ -8,8 +8,7 @@ class AppConstants {
   static const String appDescription = 'Learn Ayurveda with expert-led courses';
 
   // API Configuration
-  static const String apiBaseUrl =
-      'https://149-56-143-48.nip.io/api'; // Update with your backend URL
+  static const String apiBaseUrl = 'https://149-56-143-48.nip.io/api';
   static const String apiVersion = 'v0';
   static const int apiTimeout = 30000; // 30 seconds
 

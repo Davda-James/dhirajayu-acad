@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "Attempt" ALTER COLUMN "score" SET DEFAULT 0,
+ALTER COLUMN "score" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "Question" ALTER COLUMN "marks" SET DEFAULT 1;
+
+-- AlterTable
+ALTER TABLE "Test" ADD COLUMN     "negative_marks" DOUBLE PRECISION NOT NULL DEFAULT 0.25;
