@@ -183,18 +183,18 @@ model Enrollments {
 
 // Test Series
 model Test {
-  id          String   @id @default(cuid())
-  course_id   String
-  title       String   @db.VarChar(255)
-  total_marks Int
-  description String?
-  duration    Int
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  course       Courses    @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  questions    Question[]
-  testAttempts Attempt[]
+  id             String     @id @default(cuid())
+  course_id      String
+  title          String     @db.VarChar(255)
+  total_marks    Int
+  negative_marks Float      @default(0.25)
+  description    String?
+  duration       Int
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+  course         Courses    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  questions      Question[]
+  testAttempts   Attempt[]
 }
 
 model Question {
@@ -207,7 +207,7 @@ model Question {
   option_c       String
   option_d       String
   correct_option MCQOption
-  marks          Int
+  marks          Int       @default(1)
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
@@ -229,7 +229,7 @@ model Attempt {
   id           String        @id @default(cuid())
   user_id      String
   test_id      String
-  score        Int           @default(0)
+  score        Float         @default(0)
   attempted_at DateTime      @default(now())
   status       AttemptStatus @default(IN_PROGRESS)
 

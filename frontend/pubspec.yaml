@@ -59,6 +59,7 @@ dependencies:
   just_audio: ^0.10.5
   chewie: ^1.13.0
   razorpay_flutter: ^1.4.0
+  wakelock_plus: ^1.4.0
 
 dev_dependencies:
   flutter_test:

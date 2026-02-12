@@ -19,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget?> _screens = [
     const ExploreScreen(),
-    null, // CoursesScreen will be created on-demand
+    null,
     null,
     const ProfileScreen(),
   ];

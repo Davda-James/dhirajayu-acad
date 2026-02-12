@@ -123,6 +123,7 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
     final bCtrl = TextEditingController();
     final cCtrl = TextEditingController();
     final dCtrl = TextEditingController();
+    final _formKey = GlobalKey<FormState>();
     String correct = 'A';
     bool isSubmitting = false;
     PlatformFile? _pickedImage;
@@ -164,18 +165,43 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      TextField(
-                        controller: qCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Question',
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextFormField(
+                              controller: qCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Question',
+                              ),
+                              maxLines: 3,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Question text is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
+                              controller: marksCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Marks (optional, default 1)',
+                                hintText: 'Leave empty to use default 1',
+                              ),
+                              keyboardType: TextInputType.number,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                final val = int.tryParse(v.trim());
+                                if (val == null || val <= 0)
+                                  return 'Enter valid marks (> 0)';
+                                return null;
+                              },
+                            ),
+                          ],
                         ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: marksCtrl,
-                        decoration: const InputDecoration(labelText: 'Marks'),
-                        keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       TextField(
@@ -342,17 +368,17 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                             onPressed: isSubmitting
                                 ? null
                                 : () async {
-                                    final question = qCtrl.text.trim();
-                                    final marks =
-                                        int.tryParse(marksCtrl.text.trim()) ??
-                                        0;
-                                    if (question.isEmpty) {
-                                      setState(
-                                        () => _formError =
-                                            'Question text is required',
-                                      );
+                                    if (!(_formKey.currentState?.validate() ??
+                                        false)) {
                                       return;
                                     }
+
+                                    final question = qCtrl.text.trim();
+                                    final marksText = marksCtrl.text.trim();
+                                    final marks = marksText.isEmpty
+                                        ? null
+                                        : int.parse(marksText);
+
                                     setState(() => isSubmitting = true);
                                     try {
                                       String? mediaId;
@@ -436,10 +462,10 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                                             resp.statusCode! >= 300)
                                           throw Exception('Upload failed');
                                       }
-                                      final payload = {
+                                      final payload = <String, dynamic>{
                                         'test_id': widget.testId,
                                         'question_text': question,
-                                        'marks': marks,
+                                        if (marks != null) 'marks': marks,
                                         'option_a': aCtrl.text.trim(),
                                         'option_b': bCtrl.text.trim(),
                                         'option_c': cCtrl.text.trim(),
@@ -497,6 +523,7 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
     final bCtrl = TextEditingController(text: q['option_b'] ?? '');
     final cCtrl = TextEditingController(text: q['option_c'] ?? '');
     final dCtrl = TextEditingController(text: q['option_d'] ?? '');
+    final _formKey = GlobalKey<FormState>();
     String correct = (q['correct_option'] ?? 'A') as String;
     bool isSubmitting = false;
     PlatformFile? _pickedImage;
@@ -539,18 +566,39 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      TextField(
-                        controller: qCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Question',
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextFormField(
+                              controller: qCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Question',
+                              ),
+                              maxLines: 3,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Question text is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
+                              controller: marksCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Marks',
+                                hintText: 'Optional - default 1',
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                final val = int.tryParse(v.trim());
+                                if (val == null || val <= 0)
+                                  return 'Enter valid marks (> 0)';
+                                return null;
+                              },
+                            ),
+                          ],
                         ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: marksCtrl,
-                        decoration: const InputDecoration(labelText: 'Marks'),
-                        keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       TextField(
@@ -839,17 +887,15 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                             onPressed: isSubmitting
                                 ? null
                                 : () async {
-                                    final question = qCtrl.text.trim();
-                                    final marks =
-                                        int.tryParse(marksCtrl.text.trim()) ??
-                                        0;
-                                    if (question.isEmpty) {
-                                      setState(
-                                        () => _formError =
-                                            'Question text is required',
-                                      );
+                                    if (!(_formKey.currentState?.validate() ??
+                                        false))
                                       return;
-                                    }
+
+                                    final marksText = marksCtrl.text.trim();
+                                    final marks = marksText.isEmpty
+                                        ? null
+                                        : int.parse(marksText);
+
                                     setState(() => isSubmitting = true);
                                     try {
                                       String? mediaId;
@@ -940,7 +986,9 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                                         if (qCtrl.text.trim() !=
                                             q['question_text'])
                                           'question_text': qCtrl.text.trim(),
-                                        if (marks != q['marks']) 'marks': marks,
+                                        if (marks != null &&
+                                            marks != q['marks'])
+                                          'marks': marks,
                                         if (aCtrl.text.trim() != q['option_a'])
                                           'option_a': aCtrl.text.trim(),
                                         if (bCtrl.text.trim() != q['option_b'])

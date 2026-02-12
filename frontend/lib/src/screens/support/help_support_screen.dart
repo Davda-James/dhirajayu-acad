@@ -16,7 +16,8 @@ class HelpSupportScreen extends StatelessWidget {
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: supportEmail,
-      query: 'subject=Support Query - Dhiraj Ayu Academy',
+      query:
+          'subject=Support Query - DHIRAJ AYU ACADEMY&body=Hello Support Team,',
     );
 
     try {

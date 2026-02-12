@@ -107,7 +107,6 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         );
 
-        // Navigate to appropriate screen based on returned role (prefer register response)
         String role = 'USER';
         Map<String, dynamic>? userObj;
         try {
@@ -142,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Google Sign in failed'),
           backgroundColor: AppColors.error,
         ),
@@ -151,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Google Sign in failed'),
           backgroundColor: AppColors.error,
         ),
@@ -281,35 +280,35 @@ class _LoginScreenState extends State<LoginScreen>
                     icon: Icons.g_mobiledata,
                     isLoading: _isLoading,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-
+                  // const SizedBox(height: AppSpacing.md),
+                  // will uncomment if required for policy
                   // Terms and Privacy
-                  Text.rich(
-                    TextSpan(
-                      text: 'By continuing, you agree to our ',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'Terms of Service',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.primaryGreen,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                        const TextSpan(text: ' and '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.primaryGreen,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                  // Text.rich(
+                  //   TextSpan(
+                  //     text: 'By continuing, you agree to our ',
+                  //     style: AppTypography.bodySmall.copyWith(
+                  //       color: AppColors.textTertiary,
+                  //     ),
+                  //     children: [
+                  //       TextSpan(
+                  //         text: 'Terms of Service',
+                  //         style: AppTypography.bodySmall.copyWith(
+                  //           color: AppColors.primaryGreen,
+                  //           decoration: TextDecoration.underline,
+                  //         ),
+                  //       ),
+                  //       const TextSpan(text: ' and '),
+                  //       TextSpan(
+                  //         text: 'Privacy Policy',
+                  //         style: AppTypography.bodySmall.copyWith(
+                  //           color: AppColors.primaryGreen,
+                  //           decoration: TextDecoration.underline,
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ),
+                  //   textAlign: TextAlign.center,
+                  // ),
                   const Spacer(flex: 1),
                 ],
               ),

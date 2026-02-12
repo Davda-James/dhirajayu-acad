@@ -38,9 +38,14 @@ class TestService {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> getTestAttempts(String testId) async {
-    final resp = await ApiService().get('tests/$testId/attempts');
-    return (resp.data['attempts'] as List).cast<Map<String, dynamic>>();
+  Future<Map<String, dynamic>> getTestAttempts(
+    String testId, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final qs = '?page=$page&pageSize=$pageSize';
+    final resp = await ApiService().get('tests/$testId/attempts$qs');
+    return resp.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getAttemptDetails(String attemptId) async {
@@ -48,7 +53,10 @@ class TestService {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<void> submitAttempt(String attemptId, Map<String, dynamic> payload) async {
+  Future<void> submitAttempt(
+    String attemptId,
+    Map<String, dynamic> payload,
+  ) async {
     await ApiService().post('tests/attempt/$attemptId/submit', data: payload);
   }
 

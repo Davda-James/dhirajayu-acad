@@ -17,17 +17,29 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for ios - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -40,49 +52,11 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDYzemg4G8S9h_JwR7x45ZXsCS_0Sa1CTU',
-    appId: '1:462598414836:web:94fe8dad9d6f2d155b99a1',
-    messagingSenderId: '462598414836',
-    projectId: 'dhiraj-ayu-academy',
-    authDomain: 'dhiraj-ayu-academy.firebaseapp.com',
-    storageBucket: 'dhiraj-ayu-academy.firebasestorage.app',
-    measurementId: 'G-9KL7JGLERZ',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBJZjW2GaKHamUhF7_BR-Ok0JkWu0Dkviw',
-    appId: '1:462598414836:android:d977b7761965642e5b99a1',
+    appId: '1:462598414836:android:31e72cb9cdc7a4985b99a1',
     messagingSenderId: '462598414836',
     projectId: 'dhiraj-ayu-academy',
     storageBucket: 'dhiraj-ayu-academy.firebasestorage.app',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAJeaxIlEcK8s-J9QtPos6JVv90wZDDS0w',
-    appId: '1:462598414836:ios:283f7619b851bad75b99a1',
-    messagingSenderId: '462598414836',
-    projectId: 'dhiraj-ayu-academy',
-    storageBucket: 'dhiraj-ayu-academy.firebasestorage.app',
-    iosBundleId: 'com.example.dhirajAyuAcademy',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAJeaxIlEcK8s-J9QtPos6JVv90wZDDS0w',
-    appId: '1:462598414836:ios:283f7619b851bad75b99a1',
-    messagingSenderId: '462598414836',
-    projectId: 'dhiraj-ayu-academy',
-    storageBucket: 'dhiraj-ayu-academy.firebasestorage.app',
-    iosBundleId: 'com.example.dhirajAyuAcademy',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDYzemg4G8S9h_JwR7x45ZXsCS_0Sa1CTU',
-    appId: '1:462598414836:web:1230c67df31c91e95b99a1',
-    messagingSenderId: '462598414836',
-    projectId: 'dhiraj-ayu-academy',
-    authDomain: 'dhiraj-ayu-academy.firebaseapp.com',
-    storageBucket: 'dhiraj-ayu-academy.firebasestorage.app',
-    measurementId: 'G-E3CQXK8DCN',
   );
 }

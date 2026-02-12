@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
+import 'package:dhiraj_ayu_academy/src/models/test_attempt.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/screens/tests/test_runner_screen.dart';
+import 'package:dhiraj_ayu_academy/src/screens/tests/test_attempts_view_screen.dart';
+import 'package:dhiraj_ayu_academy/src/utils/common.dart';
 
 class TestDetailScreen extends StatefulWidget {
   final Map<String, dynamic> test;
@@ -17,25 +21,51 @@ class _TestDetailScreenState extends State<TestDetailScreen> {
   late Map<String, dynamic> _details;
   bool _loading = false;
   bool _loadingAttempts = false;
+  bool _loadingMoreAttempts = false;
   List<Map<String, dynamic>> _attempts = [];
+  int _attemptsPage = 1;
+  final int _attemptsPageSize = 20;
+  int _attemptsTotal = 0;
+
+  bool get _hasMoreAttempts => _attempts.length < _attemptsTotal;
 
   @override
   void initState() {
     super.initState();
-    // Always use passed test (caller guarantees it's available)
     _details = widget.test;
-    _fetchAttempts();
+    _fetchAttempts(page: 1);
   }
 
-  Future<void> _fetchAttempts() async {
-    setState(() => _loadingAttempts = true);
+  Future<void> _fetchAttempts({int page = 1, bool append = false}) async {
+    if (page == 1) setState(() => _loadingAttempts = true);
+    if (append) setState(() => _loadingMoreAttempts = true);
+
     try {
-      final a = await TestService().getTestAttempts(_details['id'].toString());
-      setState(() => _attempts = a.cast<Map<String, dynamic>>());
+      final resp = await TestService().getTestAttempts(
+        _details['id'].toString(),
+        page: page,
+        pageSize: _attemptsPageSize,
+      );
+
+      final attempts = (resp['attempts'] as List).cast<Map<String, dynamic>>();
+      final pagination = resp['pagination'] as Map<String, dynamic>?;
+
+      setState(() {
+        _attemptsTotal = pagination != null
+            ? (pagination['total'] as int)
+            : attempts.length;
+        _attemptsPage = page;
+        if (append) {
+          _attempts.addAll(attempts);
+        } else {
+          _attempts = attempts;
+        }
+      });
     } catch (e) {
-      setState(() => _attempts = []);
+      if (!append) setState(() => _attempts = []);
     } finally {
-      setState(() => _loadingAttempts = false);
+      if (page == 1) setState(() => _loadingAttempts = false);
+      if (append) setState(() => _loadingMoreAttempts = false);
     }
   }
 
@@ -52,16 +82,20 @@ class _TestDetailScreenState extends State<TestDetailScreen> {
         if (serverTest != null &&
             serverTest['questions'] is List &&
             (serverTest['questions'] as List).isNotEmpty) {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TestRunnerScreen(
-                test: serverTest,
-                attemptId: attemptId.toString(),
+          final completer = Completer<dynamic>();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TestRunnerScreen(
+                  test: serverTest,
+                  attemptId: attemptId.toString(),
+                ),
               ),
-            ),
-          );
-          // refresh attempts when user returns
+            ).then((v) => completer.complete(v));
+          });
+
+          await completer.future;
           await _fetchAttempts();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -86,75 +120,48 @@ class _TestDetailScreenState extends State<TestDetailScreen> {
   }
 
   Future<void> _showAttemptDetails(String attemptId) async {
-    showModalBottomSheet(
+    if (!mounted) return;
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return FutureBuilder<Map<String, dynamic>>(
-          future: TestService().getAttemptDetails(attemptId),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData)
-              return SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            final data = snapshot.data!;
-            final attempt = data['attempt'];
-            final questions = (data['questions'] as List)
-                .cast<Map<String, dynamic>>();
-            return Padding(
-              padding: EdgeInsets.only(
-                top: 12,
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Attempt', style: AppTypography.titleMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text('Score: ${attempt['score'] ?? 0}'),
-                    const SizedBox(height: AppSpacing.sm),
-                    ...questions
-                        .map(
-                          (q) => Card(
-                            child: ListTile(
-                              title: Text(q['question'] ?? ''),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Selected: ${q['selected_option'] ?? '-'}',
-                                  ),
-                                  Text(
-                                    'Correct: ${q['correct_option'] ?? '-'}',
-                                  ),
-                                  if (q['is_correct'] == true)
-                                    Text(
-                                      'Correct',
-                                      style: TextStyle(
-                                        color: AppColors.primaryGreen,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: CircularProgressIndicator(),
+        ),
+      ),
     );
+
+    try {
+      final data = await TestService().getAttemptDetails(attemptId);
+      final attemptMap = data['attempt'] as Map<String, dynamic>;
+      final attempt = Attempt.fromJson(attemptMap);
+      final questionsRaw = (data['questions'] as List)
+          .cast<Map<String, dynamic>>();
+      final questions = questionsRaw
+          .map((m) => AttemptQuestion.fromJson(m))
+          .toList();
+      if (!mounted) return;
+      Navigator.of(context).pop(); // dismiss loader
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TestAttemptScreen(
+            attempt: attempt,
+            questions: questions,
+            title: _details['title'] ?? 'Test',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load attempt details')),
+        );
+      }
+    }
   }
 
   @override
@@ -212,6 +219,17 @@ class _TestDetailScreenState extends State<TestDetailScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            'Negative marking: ',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(width: 8),
+                          Chip(label: Text('${_details['negative_marks']}')),
+                        ],
+                      ),
                     ],
                   ),
 
@@ -226,29 +244,108 @@ class _TestDetailScreenState extends State<TestDetailScreen> {
                   else if (_attempts.isEmpty)
                     const Text('No attempts yet')
                   else
-                    ..._attempts.map((a) {
-                      final ts =
-                          DateTime.tryParse(a['attempted_at'] ?? '') ??
-                          DateTime.now();
-                      final local = ts.toLocal();
-                      final date =
-                          '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
-                      final timeOnly =
-                          '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-                      final dateTime = '$date $timeOnly';
-                      return Card(
-                        child: ListTile(
-                          title: Text('Score: ${a['score']}'),
-                          subtitle: Text(dateTime),
-                          trailing: TextButton(
-                            onPressed: () => _showAttemptDetails(a['id']),
-                            child: const Text('View'),
+                    Column(
+                      children: [
+                        ..._attempts.map((a) {
+                          final formattedDate = formatAttemptDate(
+                            a['attempted_at'],
+                          );
+                          final timeOnly = formatAttemptTime(a['attempted_at']);
+
+                          return Card(
+                            elevation: 0.6,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+
+                              title: Text(
+                                'Score: ${(() {
+                                  final s = a['score'];
+                                  final val = (s is num) ? s.toDouble() : double.tryParse(s?.toString() ?? '0') ?? 0.0;
+                                  return val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2);
+                                })()}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              subtitle: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    formattedDate,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    timeOnly,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: TextButton(
+                                onPressed: () => _showAttemptDetails(a['id']),
+                                child: const Text('View'),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+
+                        const SizedBox(height: 8),
+
+                        if (_loadingMoreAttempts)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (_hasMoreAttempts)
+                          TextButton(
+                            onPressed: () => _fetchAttempts(
+                              page: _attemptsPage + 1,
+                              append: true,
+                            ),
+                            child: const Text('Load more'),
+                          ),
+
+                        const SizedBox(height: 16),
+                        Text(
+                          'Showing ${_attempts.length} of $_attemptsTotal attempts',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
                           ),
                         ),
-                      );
-                    }).toList(),
 
-                  const SizedBox(height: 96),
+                        const SizedBox(height: 56),
+                      ],
+                    ),
                 ],
               ),
             ),

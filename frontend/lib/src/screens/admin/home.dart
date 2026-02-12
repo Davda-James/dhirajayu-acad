@@ -3,7 +3,7 @@ import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/screens/admin/home_tab.dart';
 import 'package:dhiraj_ayu_academy/src/screens/admin/courses.dart';
 import 'package:dhiraj_ayu_academy/src/screens/admin/users_controller.dart';
-import 'package:dhiraj_ayu_academy/src/screens/admin/profile.dart';
+import 'package:dhiraj_ayu_academy/src/screens/profile/profile_screen.dart';
 
 /// Admin Home Screen
 /// Bottom navigation with admin tabs: Courses, Media, Users
@@ -28,7 +28,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       case 2:
         return const AdminUsersScreen();
       case 3:
-        return const AdminProfileScreen();
+        return const ProfileScreen();
       default:
         return const SizedBox.shrink();
     }

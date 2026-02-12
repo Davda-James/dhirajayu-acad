@@ -4,9 +4,7 @@ import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
-import 'package:dio/dio.dart';
-import 'dart:typed_data';
-import 'package:dhiraj_ayu_academy/src/services/media_token_cache.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class TestRunnerScreen extends StatefulWidget {
   final Map<String, dynamic> test;
@@ -27,12 +25,9 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
   Map<String, String> _answers = {}; // questionId -> selected option (A/B/C/D)
   Timer? _timer;
   int _remainingSeconds = 0;
-  // Notifier for remaining seconds so only timer widget rebuilds
   final ValueNotifier<int> _remainingNotifier = ValueNotifier<int>(0);
   bool _submitting = false;
 
-  // Cache image fetch futures per question so rebuilds (timer ticks) don't re-run network calls
-  final Map<String, Future<Uint8List?>> _imageFutures = {};
   @override
   void initState() {
     super.initState();
@@ -43,6 +38,10 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
     _remainingSeconds = (widget.test['duration'] ?? 0) * 60;
     _remainingNotifier.value = _remainingSeconds;
     startCountdown();
+
+    try {
+      WakelockPlus.enable();
+    } catch (_) {}
   }
 
   void startCountdown() {
@@ -144,6 +143,9 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
           context,
         ).showSnackBar(const SnackBar(content: Text('Failed to submit test')));
     } finally {
+      try {
+        WakelockPlus.disable();
+      } catch (_) {}
       if (mounted) setState(() => _submitting = false);
     }
   }
@@ -151,51 +153,15 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _imageFutures.clear();
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     _remainingNotifier.dispose();
     super.dispose();
   }
 
-  // Return a cached future for a question's image bytes. If not cached, start a fetch.
-  Future<Uint8List?> _loadQuestionImage(Map<String, dynamic> q) {
-    final id = q['id'].toString();
-    if (_imageFutures.containsKey(id)) return _imageFutures[id]!;
-    final fut = _fetchQuestionImage(q);
-    _imageFutures[id] = fut;
-    return fut;
-  }
-
-  Future<Uint8List?> _fetchQuestionImage(Map<String, dynamic> q) async {
-    try {
-      final assetId = q['image_id']?.toString();
-      if (assetId == null) return null;
-      final usageId = 'runner_question_${q['id']}';
-      final ok = await mediaTokenCache.ensureTokenForUsage(
-        usageId,
-        assetId: assetId,
-      );
-      if (!ok) return null;
-      final details = mediaTokenCache.getDetails(usageId);
-      final url = details?['media_url'] as String?;
-      final token = details?['worker_token'] as String?;
-      if (url == null) return null;
-      final dio = Dio();
-      final resp = await dio.get<List<int>>(
-        url,
-        options: Options(
-          responseType: ResponseType.bytes,
-          headers: {if (token != null) 'Authorization': 'Bearer $token'},
-        ),
-      );
-      return Uint8List.fromList(resp.data!);
-    } catch (e) {
-      return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // If there are no questions, show a friendly message and let user exit
     if (_questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(
@@ -299,68 +265,45 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
                               const SizedBox(height: AppSpacing.sm),
 
                               // Show question image if present
-                              if (q['image_id'] != null) ...[
-                                FutureBuilder<Uint8List?>(
-                                  future: _loadQuestionImage(q),
-                                  builder: (context, snap) {
-                                    final qId = q['id'].toString();
-                                    if (snap.connectionState !=
-                                        ConnectionState.done) {
-                                      return const SizedBox(
-                                        height: 160,
-                                        child: Center(
-                                          child: SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
+                              if (q['media_url'] != null) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    q['media_url']!,
+                                    width: double.infinity,
+                                    height: 160,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null)
+                                            return child;
+                                          return const SizedBox(
+                                            height: 160,
+                                            child: Center(
+                                              child: SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    if (snap.hasError || snap.data == null) {
-                                      return Container(
-                                        width: double.infinity,
-                                        height: 160,
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            const Text('Preview not available'),
-                                            const SizedBox(height: 8),
-                                            TextButton.icon(
-                                              onPressed: () {
-                                                // Clear cached future so retry actually refetches
-                                                setState(() {
-                                                  _imageFutures.remove(qId);
-                                                });
-                                              },
-                                              icon: const Icon(Icons.refresh),
-                                              label: const Text('Retry'),
+                                          );
+                                        },
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              height: 160,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade200,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: const Text(
+                                                'Preview not available',
+                                              ),
                                             ),
-                                          ],
-                                        ),
-                                      );
-                                    }
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.memory(
-                                        snap.data!,
-                                        width: double.infinity,
-                                        height: 160,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    );
-                                  },
+                                  ),
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 const Divider(),
@@ -400,35 +343,41 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
           minimum: const EdgeInsets.all(AppSpacing.sm),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton(
-                  onPressed: _index == 0
-                      ? null
-                      : () => setState(() => _index -= 1),
-                  child: const Text('Previous'),
-                ),
-                if (_index < _questions.length - 1)
-                  ElevatedButton(
-                    onPressed: () => setState(() => _index += 1),
-                    child: const Text('Next'),
-                  )
-                else
-                  ElevatedButton(
-                    onPressed: _submitting ? null : _confirmAndSubmit,
-                    child: _submitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('End Test'),
+            child: IntrinsicWidth(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _index == 0
+                          ? null
+                          : () => setState(() => _index -= 1),
+                      child: const Text('Previous'),
+                    ),
                   ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _index < _questions.length - 1
+                        ? ElevatedButton(
+                            onPressed: () => setState(() => _index += 1),
+                            child: const Text('Next'),
+                          )
+                        : ElevatedButton(
+                            onPressed: _submitting ? null : _confirmAndSubmit,
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('End Test'),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

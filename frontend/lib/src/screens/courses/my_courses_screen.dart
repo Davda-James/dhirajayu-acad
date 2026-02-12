@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
-import 'package:dhiraj_ayu_academy/src/widgets/cards.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
 import 'package:dhiraj_ayu_academy/src/services/api_service.dart';
 import 'package:dhiraj_ayu_academy/src/screens/courses/course_content_screen.dart';
@@ -16,26 +15,20 @@ class MyCoursesScreen extends StatefulWidget {
   State<MyCoursesScreen> createState() => _MyCoursesScreenState();
 }
 
-class _MyCoursesScreenState extends State<MyCoursesScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MyCoursesScreenState extends State<MyCoursesScreen> {
   bool _isLoading = false;
   bool _isRefreshing = false;
 
-  // TODO: Replace with actual data from API
   final List<Map<String, dynamic>> _enrolledCourses = [];
-  final List<Map<String, dynamic>> _completedCourses = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadCourses();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -54,20 +47,12 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
       final resp = await ApiService().get('courses/my-courses');
       final List<dynamic> courses = resp.data['courses'] ?? [];
 
-      // For now, consider all as in-progress. If backend includes progress/completed flags, use them accordingly.
       final enrolled = courses.cast<Map<String, dynamic>>();
 
       if (mounted) {
         setState(() {
           _enrolledCourses.clear();
-          _enrolledCourses.addAll(enrolled);
-          _completedCourses.clear();
-          // If course has completed flag, move to completed list
-          for (final c in enrolled) {
-            if (c['completed'] == true) {
-              _completedCourses.add(c);
-            }
-          }
+          _enrolledCourses.addAll(enrolled.cast<Map<String, dynamic>>());
           _isLoading = false;
           _isRefreshing = false;
         });
@@ -97,27 +82,12 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
               backgroundColor: AppColors.backgroundWhite,
               elevation: 0,
               title: const Text('My Courses'),
-              bottom: TabBar(
-                controller: _tabController,
-                indicatorColor: AppColors.primaryGreen,
-                labelColor: AppColors.primaryGreen,
-                unselectedLabelColor: AppColors.textSecondary,
-                labelStyle: AppTypography.titleMedium,
-                unselectedLabelStyle: AppTypography.bodyMedium,
-                tabs: const [
-                  Tab(text: 'In Progress'),
-                  Tab(text: 'Completed'),
-                ],
-              ),
             ),
           ];
         },
         body: (_isLoading && !_isRefreshing)
             ? const LoadingIndicator()
-            : TabBarView(
-                controller: _tabController,
-                children: [_buildInProgressTab(), _buildCompletedTab()],
-              ),
+            : _buildInProgressTab(),
       ),
     );
   }
@@ -142,51 +112,6 @@ class _MyCoursesScreenState extends State<MyCoursesScreen>
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: _buildCourseProgressCard(course),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCompletedTab() {
-    if (_completedCourses.isEmpty) {
-      return const EmptyState(
-        icon: Icons.check_circle_outline,
-        title: 'No completed courses',
-        subtitle: 'Complete a course to see it here',
-      );
-    }
-
-    return PullToRefresh(
-      onRefresh: () => _loadCourses(showGlobalLoading: false),
-      child: ListView.builder(
-        padding: AppSpacing.screenPaddingAll,
-        itemCount: _completedCourses.length,
-        itemBuilder: (context, index) {
-          final course = _completedCourses[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: CourseCard(
-              title: course['title'] ?? '',
-              description: course['description'] ?? '',
-              thumbnailUrl: course['thumbnail_url'],
-              isPaid: course['is_paid'] ?? false,
-              price: course['price'] != null
-                  ? (course['price'] as num).toInt()
-                  : null,
-              isEnrolled: true,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CourseContentScreen(
-                      courseId: course['id'],
-                      courseDetails: course,
-                    ),
-                  ),
-                );
-              },
-            ),
           );
         },
       ),

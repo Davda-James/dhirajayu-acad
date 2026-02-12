@@ -3,14 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppConstants.dart';
 import 'package:dhiraj_ayu_academy/src/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import 'package:dhiraj_ayu_academy/src/providers/user_provider.dart';
 import 'package:dhiraj_ayu_academy/src/widgets/common_widgets.dart';
-import 'package:dhiraj_ayu_academy/src/screens/support/help_support_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// Profile Screen
-/// User profile and settings
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -30,14 +29,6 @@ class ProfileScreen extends StatelessWidget {
             backgroundColor: AppColors.backgroundWhite,
             elevation: 0,
             title: const Text('Profile'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () {
-                  // TODO: Navigate to settings
-                },
-              ),
-            ],
           ),
 
           // Content
@@ -46,7 +37,6 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: AppSpacing.lg),
 
-                // Profile Header (avatar, name, email, stats)
                 Container(
                   margin: AppSpacing.screenPaddingHorizontal,
                   padding: AppSpacing.paddingLG,
@@ -72,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
 
                       // Name
                       Text(
-                        currentUser?.displayName ?? 'Student Name',
+                        currentUser?.displayName ?? 'Admin',
                         style: AppTypography.headlineMedium,
                         textAlign: TextAlign.center,
                       ),
@@ -80,25 +70,13 @@ class ProfileScreen extends StatelessWidget {
 
                       // Email
                       Text(
-                        currentUser?.email ?? 'student@example.com',
+                        currentUser?.email ?? 'admin@example.com',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
-                      // Stats
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatItem('0', 'Courses'),
-                          _buildDivider(),
-                          _buildStatItem('0', 'Completed'),
-                          _buildDivider(),
-                          _buildStatItem('0', 'Hours'),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -111,36 +89,80 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: AppSpacing.lg),
-
-                // Menu Items
-                MenuListItem(
-                  icon: Icons.school_outlined,
-                  title: 'My Courses',
-                  onTap: () {},
-                ),
-                MenuListItem(
-                  icon: Icons.bookmark_outline,
-                  title: 'Saved Courses',
-                  onTap: () {},
-                ),
-                MenuListItem(
-                  icon: Icons.history,
-                  title: 'Learning History',
-                  onTap: () {},
-                ),
-                MenuListItem(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  onTap: () {},
-                ),
                 MenuListItem(
                   icon: Icons.help_outline,
                   title: 'Help & Support',
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HelpSupportScreen(),
+                    showDialog<void>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.all(16),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryGreen.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.headset_mic,
+                                    color: AppColors.primaryGreen,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: const [
+                                      Text(
+                                        'Help & Support',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Get help, FAQs or contact our support team.',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Close'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final Uri emailUri = Uri(
+                                scheme: 'mailto',
+                                path: 'dhirajayuacademy@gmail.com',
+                                query:
+                                    'subject=Support%20Request%20-%20Dhiraj%20Ayu%20Academy&body=Hello%20Support%20Team,',
+                              );
+                              try {
+                                await launchUrl(emailUri);
+                              } catch (_) {}
+                            },
+                            child: const Text('Contact'),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -148,7 +170,64 @@ class ProfileScreen extends StatelessWidget {
                 MenuListItem(
                   icon: Icons.info_outline,
                   title: 'About',
-                  onTap: () {},
+                  onTap: () {
+                    showDialog<void>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.all(16),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryGreen.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.info,
+                                    color: AppColors.primaryGreen,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppConstants.appName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text('Version 1.0.0'),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(AppConstants.appDescription),
+                            const SizedBox(height: 12),
+                            const Text('© 2026 Dhiraj Ayu Academy'),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.md),
                 MenuListItem(
@@ -186,30 +265,5 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildStatItem(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: AppTypography.headlineMedium.copyWith(
-            color: AppColors.primaryGreen,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(width: 1, height: 40, color: AppColors.divider);
   }
 }

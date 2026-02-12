@@ -1,13 +1,3 @@
-/**
- * Optimized Cloudflare Worker to serve course media from R2
- * - Verifies JWT in-worker using `env.JWT_SECRET` (HS256)
- * - Streams R2 objects directly (no buffering)
- * - Supports `Range` and returns 206 Partial Content
- * - Returns 304 Not Modified when ETag matches
- * - Caches media and thumbnails at the edge (configurable TTLs)
- * - Uses `COURSE_CONTENT_BUCKET` binding for R2
- */
-
 import { jwtVerify } from 'jose';
 
 export interface Env {
@@ -43,11 +33,10 @@ async function handleFetch(request: Request, env: Env, ctx: ExecutionContext, ur
     const objectPath = decodeURIComponent(url.pathname).replace(/^\//, '');
     if (!objectPath) return new Response('Not Found', { status: 404 });
 
-    // Determine if this asset is public (thumbnails)
-    const isThumbnail = objectPath.startsWith('thumbnails/');
+		const isPublic = objectPath.startsWith('thumbnails/') || objectPath.startsWith('test/');
 
-    // Verify JWT for protected assets only (videos, audios, docs etc.)
-    if (!isThumbnail) {
+		// Verify JWT for protected assets only (videos, audios, docs etc.)
+    if (!isPublic) {
       const auth = request.headers.get('Authorization') || '';
       if (!auth.startsWith('Bearer ')) return new Response('Unauthorized', { status: 401 });
       const token = auth.split(' ')[1];
@@ -203,7 +192,7 @@ async function verifyJWTLocal(token: string, env: Env): Promise<JWTPayload | nul
 
 function getCacheTime(path: string): number {
   // longer TTL for thumbnails/images, moderate for docs, shorter for videos/audios
-  if (path.match(/\.(jpg|jpeg|png|webp)$/i) || path.startsWith('thumbnails/') || path.startsWith('images/')) return 2592000; // 30 days
+  if (path.match(/\.(jpg|jpeg|png|webp)$/i) || path.startsWith('thumbnails/') || path.startsWith('test/')) return 2592000;
   if (path.startsWith('docs/') || path.match(/\.(pdf|docx?)$/i)) return 604800; // 7 days
   if (path.startsWith('videos/') || path.startsWith('audios/') || path.match(/\.(mp4|mp3|mov)$/i)) return 86400; // 1 day
   return 3600; // default 1 hour

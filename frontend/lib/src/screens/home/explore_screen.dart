@@ -45,23 +45,6 @@ class ExploreScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: AppSpacing.md),
-                // Continue Learning Section
-                const SectionHeader(
-                  title: 'Continue Learning',
-                  actionText: 'See All',
-                ),
-                const SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: EmptyState(
-                      icon: Icons.play_circle_outline,
-                      title: 'No courses in progress',
-                      subtitle: 'Start a course to see it here',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
                 // Categories Section
                 const SectionHeader(title: 'Categories'),
                 const SizedBox(height: AppSpacing.md),

@@ -4,7 +4,7 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Dhiraj Ayu Academy';
+  static const String appName = 'DHIRAJ AYU ACADEMY';
   static const String appDescription = 'Learn Ayurveda with expert-led courses';
 
   // API Configuration

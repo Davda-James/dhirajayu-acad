@@ -116,6 +116,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
           ? (existingTest['duration']?.toString() ?? '')
           : '',
     );
+    final negativeMarksCtrl = TextEditingController(
+      text: existingTest != null
+          ? (existingTest['negative_marks']?.toString() ?? '')
+          : '',
+    );
+
+    final _formKey = GlobalKey<FormState>();
 
     final result = await showDialog<bool>(
       context: context,
@@ -124,33 +131,93 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
             title: Text(existingTest == null ? 'Add Test' : 'Edit Test'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Title'),
+            content: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.72,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: marksCtrl,
-                  decoration: const InputDecoration(labelText: 'Total Marks'),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: durationCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Duration (minutes)',
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: titleCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty)
+                            return 'Title is required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: descCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                        ),
+                        validator: (v) => null,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: marksCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(
+                          labelText: 'Total Marks',
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          final text = (v ?? '').trim();
+                          final n = int.tryParse(text);
+                          if (text.isEmpty) return 'Total marks is required';
+                          if (n == null) return 'Enter a valid integer';
+                          if (n < 0)
+                            return 'Total Marks must be zero or greater';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: durationCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(
+                          labelText: 'Duration (minutes)',
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          final n = int.tryParse((v ?? '').trim());
+                          if (n == null || n <= 0)
+                            return 'Duration must be a positive number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: negativeMarksCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(
+                          labelText: 'Negative marks (default 0.25)',
+                          hintText: 'e.g. 0.25',
+                        ),
+                        keyboardType: TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) {
+                          final text = (v ?? '').trim();
+                          if (text.isEmpty) return null;
+                          final d = double.tryParse(text);
+                          if (d == null) return 'Enter a valid number';
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
-                  keyboardType: TextInputType.number,
                 ),
-              ],
+              ),
             ),
             actions: [
               TextButton(
@@ -168,35 +235,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
                             int.tryParse(marksCtrl.text.trim()) ?? 0;
                         final duration = int.tryParse(durationCtrl.text.trim());
 
-                        // Basic validation on client-side so we fail fast
-                        if (title.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Title is required')),
-                          );
+                        if (!(_formKey.currentState?.validate() ?? false)) {
                           return;
-                        }
-                        if (duration == null || duration <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Duration must be a positive number',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        if (totalMarks < 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Total Marks must be zero or greater',
-                              ),
-                            ),
-                          );
                         }
 
                         setState(() => isCreating = true);
                         try {
+                          final negText = negativeMarksCtrl.text.trim();
+                          final negVal = negText.isEmpty
+                              ? null
+                              : double.tryParse(negText);
+
                           if (existingTest == null) {
                             await TestService()
                                 .createTest({
@@ -205,6 +254,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
                                   'description': descCtrl.text.trim(),
                                   'total_marks': totalMarks,
                                   'duration': duration,
+                                  if (negVal != null) 'negative_marks': negVal,
                                 })
                                 .timeout(const Duration(seconds: 12));
                           } else {
@@ -215,6 +265,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
                                   'description': descCtrl.text.trim(),
                                   'total_marks': totalMarks,
                                   'duration': duration,
+                                  if (negVal != null) 'negative_marks': negVal,
                                 })
                                 .timeout(const Duration(seconds: 12));
                           }
@@ -472,11 +523,6 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
         );
       },
     );
-
-    // Do not explicitly dispose the controller here; the sheet's TextField may
-    // still have listeners during the pop lifecycle causing assertion failures
-    // like "_dependents.isEmpty is not true". Let GC clean it up after route
-    // is fully removed.
 
     if (name != null && name.isNotEmpty) {
       await _addFolder(moduleId, name, parentId: parentId);

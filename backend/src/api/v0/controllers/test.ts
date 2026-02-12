@@ -5,17 +5,17 @@ import {Request, Response} from 'express';
 import mime from 'mime-types';
 import crypto from 'crypto';
 import { cloudflareR2 } from '@v0/services/objectStore';
-import { AttemptStatus, MediaStatus, MediaType } from '@prisma/client';
+import { AttemptStatus, MediaStatus } from '@prisma/client';
 import { Role } from '@prisma/client';
 import ENV from '@/shared/config/env';
+import { paginationSchema } from '@/shared/schema/common';
 
 export async function createTest(req: Request, res: Response) {
-    console.log("Create test request body:", req.body);
     const parsedResult = createTestSchema.safeParse(req.body);
     if (!parsedResult.success) {
         return res.status(400).json({ message: "Invalid input", errors: parsedResult.error.issues });
     }
-    const { course_id, title, description, total_marks, duration } = parsedResult.data;
+    const { course_id, title, description, total_marks, duration, negative_marks } = parsedResult.data;
     try {
         const test = await prisma.test.create({
             data: {
@@ -23,7 +23,8 @@ export async function createTest(req: Request, res: Response) {
                 title,
                 description: (description ? description : null),
                 total_marks,
-                duration
+                duration,
+                ...(negative_marks ? { negative_marks } : {})
             }
         })
         return res.status(201).json({ message: "Test created successfully", test: test });
@@ -41,7 +42,7 @@ export async function updateTest(req: Request, res: Response) {
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid input", errors: parsedResult.error.issues });
         }
-        const { title, description, total_marks, duration } = parsedResult.data;
+        const { title, description, total_marks, duration, negative_marks } = parsedResult.data;
         const existingTest = await prisma.test.findUnique({ where: { id: testId } });
         if(!existingTest) {
             return res.status(404).json({ message: "Test not found"});
@@ -52,6 +53,7 @@ export async function updateTest(req: Request, res: Response) {
         if (description !== undefined) dataToUpdate.description = description ?? null;
         if (total_marks !== undefined) dataToUpdate.total_marks = total_marks;
         if (duration !== undefined) dataToUpdate.duration = duration;
+        if (negative_marks !== undefined) dataToUpdate.negative_marks = negative_marks;
 
         if (Object.keys(dataToUpdate).length === 0) {
             // Nothing to update
@@ -113,6 +115,18 @@ export async function addQuestion(req: Request, res: Response) {
         }
         const { test_id, mediaId, question_text, marks, option_a, option_b, option_c, option_d, correct_option } = parsedResult.data;
         let question;
+        const data = {
+          test_id,
+          question_text,
+          ...(marks ? { marks } : {}), 
+          option_a,
+          option_b,
+          option_c,
+          option_d,
+          correct_option,
+          ...(mediaId ? { image_id: mediaId } : {})
+        }
+
         if(mediaId) {
             const media = await prisma.mediaAsset.findUnique({ where: { id: mediaId } });
             if (!media) {
@@ -126,17 +140,7 @@ export async function addQuestion(req: Request, res: Response) {
             }
             question = await prisma.$transaction(async (tx) => {
                 const question = await tx.question.create({
-                    data: {
-                        test_id,
-                        question_text,
-                        marks,
-                        option_a,
-                        option_b,
-                        option_c,
-                        option_d,
-                        correct_option,
-                        image_id: mediaId
-                    }
+                    data
                 });
                 await tx.mediaAsset.update({
                     where: { id: mediaId },
@@ -145,18 +149,9 @@ export async function addQuestion(req: Request, res: Response) {
                 return question;
             })
         } else {
-            question = await prisma.question.create({
-                data: {
-                    test_id,
-                    question_text,
-                    marks,
-                    option_a,
-                    option_b,
-                    option_c,
-                    option_d,
-                    correct_option
-                }
-            })        
+          question = await prisma.question.create({
+              data
+          })        
         }
         return res.status(201).json({ message: "Question added successfully", question });
     } catch(error) {
@@ -173,24 +168,22 @@ export async function updateQuestion(req: Request, res: Response) {
 
     const parsed = updateQuestionSchema.safeParse(req.body);
     if (!parsed.success) {
-        console.log(parsed.error);
       return res.status(400).json({
         message: 'Invalid input',
         errors: parsed.error.flatten().fieldErrors
       });
     }
-    console.log("reached step2")
     const {
-      imageId,
-      previous_imageId,
-      removeImage,
-      question_text,
-      marks,
-      option_a,
-      option_b,
-    option_c,
-      option_d,
-      correct_option
+        imageId,
+        previous_imageId,
+        removeImage,
+        question_text,
+        marks,
+        option_a,
+        option_b,
+        option_c,
+        option_d,
+        correct_option
     } = parsed.data;
 
     const existingQuestion = await prisma.question.findUnique({
@@ -219,7 +212,6 @@ export async function updateQuestion(req: Request, res: Response) {
       return res.status(400).json({ message: 'No fields provided for update' });
     }
 
-    console.log("something is there to change")
     let mediaPathToDelete: string | null = null;
 
     await prisma.$transaction(async (tx) => {
@@ -238,7 +230,6 @@ export async function updateQuestion(req: Request, res: Response) {
         });
 
         if (prevMedia) {
-            console.log("should not reach as prev media is not there")
           mediaPathToDelete = prevMedia.media_path;
           await tx.mediaAsset.delete({ where: { id: prevMedia.id } });
         }
@@ -251,7 +242,6 @@ export async function updateQuestion(req: Request, res: Response) {
         const newMedia = await tx.mediaAsset.findUnique({
           where: { id: imageId }
         });
-        console.log("image detected")
         if (!newMedia || newMedia.status !== MediaStatus.PENDING) {
           throw new Error('INVALID_NEW_MEDIA');
         }
@@ -296,7 +286,6 @@ export async function updateQuestion(req: Request, res: Response) {
     // object storage clean up
     if (mediaPathToDelete) {
       try {
-        console.log("deleted old path ")
         await cloudflareR2.deleteMediaFile(mediaPathToDelete);
       } catch (err) {
         console.error('Failed to delete media from storage:', err);
@@ -394,12 +383,21 @@ export async function startTest(req: Request, res: Response) {
                 test_id: test.id,
             }
         })
+        const testWithMediaUrls = {
+            ...test,
+            questions: (test.questions || []).map((q: any) => {
+                const mediaUrl = q.image?.media_path ? `${ENV.WORKER_BASE_URL}/${q.image.media_path}` : null;
+                const { image, ...rest } = q;
+                return {
+                    ...rest,
+                    media_url: mediaUrl,
+                };
+            })
+        };
         return res.status(200).json({
             message: "Test started",
             attemptId: createdAttempt.id,
-            test: {
-                ...test,
-            }
+            test: testWithMediaUrls
         });
     } catch(error) {
         return res.status(500).json({ message: "Error starting test"});
@@ -412,14 +410,20 @@ export async function getTestAttempts(req: Request, res: Response) {
         if(!testId) {
             return res.status(400).json({ message: "Test ID is required"});
         }
+        const parsedData = paginationSchema.safeParse(req.query);
+        if(!parsedData.success) {
+            return res.status(400).json({ message: "Invalid pagination parameters", errors: parsedData.error.issues });
+        }
+        const page = Math.max(1, parseInt((parsedData.data?.page as string) || '1', 10));
+        const pageSize = Math.min(100, Math.max(1, parseInt((parsedData.data?.pageSize as string) || '20', 10)));
+        const skip = (page - 1) * pageSize;
+
         const test = await prisma.test.findUnique({
             where: { id: testId },
             select: {
                 course_id: true,
                 course: {
-                select: {
-                    is_paid: true
-                }
+                    select: { is_paid: true }
                 }
             }
         });
@@ -431,17 +435,24 @@ export async function getTestAttempts(req: Request, res: Response) {
                 return res.status(403).json({ message: 'Access denied, purchase the course to access test' });
             }
         }
-        const attempts = await prisma.attempt.findMany({
-            where: { user_id: req.user.uid! , test_id: testId },
-            omit: {
-                user_id: true,
-            },
-            orderBy: {
-                attempted_at: 'desc'
-            }
+
+        const [attempts, total] = await Promise.all([
+            prisma.attempt.findMany({
+                where: { user_id: req.user.uid! , test_id: testId },
+                omit: { user_id: true },
+                orderBy: { attempted_at: 'desc' },
+                skip,
+                take: pageSize,
+            }),
+            prisma.attempt.count({ where: { user_id: req.user.uid!, test_id: testId } }),
+        ]);
+
+        const totalPages = Math.ceil(total / pageSize);
+
+        return res.status(200).json({
+            attempts,
+            pagination: { page, pageSize, total, totalPages }
         });
-        
-        return res.status(200).json({ attempts });
     } catch(error) {
         return res.status(500).json({ message: "Error fetching test attempts"});
     }
@@ -458,6 +469,7 @@ export async function getTestAttemptQuesAns(req: Request, res: Response) {
             select: { 
                 id: true,
                 score: true,
+                test_id: true,
                 attempted_at: true,
                 test: {
                 select: {
@@ -476,40 +488,48 @@ export async function getTestAttemptQuesAns(req: Request, res: Response) {
                 return res.status(403).json({ message: 'Access denied to this test attempt' });
             }
         }
-        const answers = await prisma.attemptAnswer.findMany({
-            where: {
-                attempt_id: attemptId
-            },
-            include: {
-                question: {
-                    select: {
-                        id: true,
-                        question_text: true,
-                        option_a: true,
-                        option_b: true,
-                        option_c: true,
-                        option_d: true,
-                        marks: true,
-                        image_id: true,
-                        correct_option: true
-                    }
+        const questions = await prisma.question.findMany({
+            where: { test_id: attempt.test_id },
+            select: {
+              id: true,
+              question_text: true,
+              option_a: true,
+              option_b: true,
+              option_c: true,
+              option_d: true,
+              marks: true,
+              correct_option: true,
+              image: {
+                select: {
+                  media_path: true  
                 }
+              },
+              attemptAnswers: {
+                where: { attempt_id: attemptId },
+                select: {
+                  selected_option: true,
+                  is_correct: true
+                }
+              }
             },
-            orderBy: {
-                question: { created_at: "asc" }
-            }
-        })
+            orderBy: { created_at: "asc" }
+        });
         return res.status(200).json({
             attempt: {
                 id: attempt.id,
                 score: attempt.score,
                 attempted_at: attempt.attempted_at
             },
-            questions: answers.map(a => ({
-                ...a.question,
-                selected_option: a.selected_option,
-                is_correct: a.is_correct
-            }))
+            questions: questions.map(q => {
+                const mediaUrl = q.image?.media_path ? `${ENV.WORKER_BASE_URL}/${q.image.media_path}` : null;
+                const { image, attemptAnswers ,...rest } = q;
+                return {
+                    ...rest,
+                    media_url: mediaUrl,
+                    selected_option: attemptAnswers.length > 0 ? attemptAnswers[0]?.selected_option : null,
+                    is_correct: attemptAnswers.length > 0 ? attemptAnswers[0]?.is_correct : null
+                };
+            })
         });
     } catch(error) {    
         return res.status(500).json({ message: "Error fetching test attempt questions"});
@@ -542,7 +562,12 @@ export async function submitAttempt(req: Request, res: Response) {
             select: {
                 id: true,
                 correct_option: true,
-                marks: true
+                marks: true,
+                test: {
+                  select: { 
+                    negative_marks: true
+                  }
+              }
             }
         });
         
@@ -564,8 +589,7 @@ export async function submitAttempt(req: Request, res: Response) {
             if (!selected) return null;
 
             const isCorrect = selected === question.correct_option;
-            if (isCorrect) totalScore += question.marks;
-
+            isCorrect ? totalScore += question.marks : totalScore += (question.marks - question.test.negative_marks);
             return {
                 attempt_id: attempt.id,
                 question_id: question.id,
@@ -580,6 +604,8 @@ export async function submitAttempt(req: Request, res: Response) {
             is_correct: boolean;
         }[];
 
+        const finalScore = Math.max(0, Math.round(totalScore * 100) / 100);
+
         await prisma.$transaction([
             prisma.attemptAnswer.createMany({
                 data: attemptAnswers,
@@ -588,15 +614,15 @@ export async function submitAttempt(req: Request, res: Response) {
             prisma.attempt.update({
                 where: { id: attempt.id },
                 data: {
-                    score: totalScore,
+                    score: finalScore,
                     status: AttemptStatus.COMPLETED
                 }
             })
         ]);
 
         return res.status(200).json({
-            message: "Test submitted successfully",
-            score: totalScore
+          message: "Test submitted successfully",
+          score: finalScore
         });
 
     } catch(error) {
