@@ -379,15 +379,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add Module'),
-        content: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: SingleChildScrollView(
-            child: TextField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: 'Module Name'),
-            ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Module Name',
+            border: OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -451,81 +448,33 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen> {
   }
 
   Future<void> _showAddFolderDialog(String moduleId, {String? parentId}) async {
-    // Use a bottom sheet (isScrollControlled) so the sheet moves above the
-    // keyboard and the TextField remains visible on small screens / web.
     final controller = TextEditingController();
-
-    final name = await showModalBottomSheet<String>(
+    final result = await showDialog<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).dialogBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12.0)),
+      builder: (context) => AlertDialog(
+        title: const Text('Add Folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Folder Name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width < 600
-                      ? MediaQuery.of(context).size.width
-                      : MediaQuery.of(context).size.width * 0.6,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Add Folder',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12.0),
-                      TextField(
-                        controller: controller,
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Folder Name',
-                          border: UnderlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 8.0),
-                          ElevatedButton(
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pop(controller.text.trim()),
-                            child: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
-
-    if (name != null && name.isNotEmpty) {
-      await _addFolder(moduleId, name, parentId: parentId);
+    if (result != null && result.isNotEmpty) {
+      await _addFolder(moduleId, result, parentId: parentId);
     }
   }
 

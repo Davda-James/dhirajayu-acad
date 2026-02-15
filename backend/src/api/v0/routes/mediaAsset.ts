@@ -1,15 +1,16 @@
 import { Router } from 'express';
-import { createMediaAsset, getMediaAccessToken, listMediaAssets } from '../controllers/mediaAsset';
+import { createGalleryMediaImage, createGalleryMediaVideo, deleteGalleryMediaAsset, getMediaAccessToken, listGalleryMedia, requestGalleryImageUpload } from '@v0/controllers/mediaAsset';
 import checkRoleIsAdmin from '@v0/middlewares/checkRole';
-import { verifySession } from '../middlewares/auth';
+import { verifySession } from '@v0/middlewares/auth';
 
 const router = Router();
 
-// Admin: Upload a new media asset
-router.post('/create', verifySession, checkRoleIsAdmin, createMediaAsset);
+// for gallery 
+router.post('/upload-gallery-image', verifySession, checkRoleIsAdmin, createGalleryMediaImage);
+router.post('/upload-gallery-video', verifySession, checkRoleIsAdmin, createGalleryMediaVideo);
+router.post('/request-gallery-upload', verifySession, checkRoleIsAdmin, requestGalleryImageUpload);
+router.get('/gallery', verifySession, listGalleryMedia);
+router.delete('/gallery/:type/:assetId', verifySession, checkRoleIsAdmin, deleteGalleryMediaAsset);
 
-// List all media assets
-router.get('/', verifySession, checkRoleIsAdmin, listMediaAssets);
 router.get('/:assetId/accessToken', verifySession, getMediaAccessToken);
-
 export default router;

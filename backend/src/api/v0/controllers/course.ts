@@ -1,36 +1,21 @@
 import Router from "express";
 import { Request, Response } from 'express';
 import prisma from "@/shared/db";
-import { MediaType, MediaStatus, PaymentStatus, OrderStatus } from "@prisma/client";
+import { MediaStatus, PaymentStatus, OrderStatus } from "@prisma/client";
 import * as z from "zod";
 import ENV from "@/shared/config/env";
 import mime from "mime-types";
 import { cloudflareR2 } from '@v0/services/objectStore';
 import razorpay from "@/shared/config/razorpay";
 import crypto from "crypto";
-import { courseMediaUpload, imageUploadSchema } from "@/shared/schema/media";
+import { confirmMediaUploadSchema, courseMediaUpload, imageUploadSchema } from "@/shared/schema/media";
+import { createCourseSchema, deleteCourseSchema, getCoursesSchema, updateCourseSchema } from "@/shared/schema/course";
 
 const router = Router();
 
-// Validation constants
-const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1GB
-const MAX_BATCH_SIZE = 10;
-
-// has paging
 export async function getAllCourses(req: Request, res: Response) {
-    const paginationSchema = z.object({
-            page: z.coerce.number().int().min(1).default(1),
-            pageSize: z.coerce.number().int().min(1).max(50).default(10),
-            is_paid: z.preprocess((val) => {
-                if (val === undefined) return undefined;
-                if (val === 'true' || val === true) return true;
-                if (val === 'false' || val === false) return false;
-                return undefined;
-            }, z.boolean().optional()),
-            sort: z.enum(['most_recent', 'most_popular', 'price_asc', 'price_desc', 'a_z', 'z_a']).optional()
-    }).strict();
     try {
-        const parsedResult = paginationSchema.safeParse(req.query);
+        const parsedResult = getCoursesSchema.safeParse(req.query);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid query parameters", errors: parsedResult.error.issues });
         }
@@ -112,15 +97,9 @@ export async function getAllCourses(req: Request, res: Response) {
 
 
 export async function createCourse(req: Request, res: Response) {
-    const schema = z.object({
-        title: z.string().min(3),
-        description: z.string(),
-        is_paid: z.boolean(),
-        price: z.number().optional(),
-        mediaId: z.cuid().optional()
-    }).strict();
     try {
-        const parsedResult = schema.safeParse(req.body);
+
+        const parsedResult = createCourseSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid input" });
         }
@@ -133,8 +112,8 @@ export async function createCourse(req: Request, res: Response) {
 
         let course;
         
-        if (payload.mediaId) {
-            const mediaId = payload.mediaId;
+        if (payload.thumbnail_id) {
+            const mediaId = payload.thumbnail_id;
             
             const media = await prisma.mediaAsset.findUnique({
                 where: { id: mediaId }
@@ -144,6 +123,13 @@ export async function createCourse(req: Request, res: Response) {
             }
             if (media.status !== MediaStatus.PENDING) {
                 return res.status(400).json({ message: "Invalid media state" });
+            }
+            if (media.media_path){
+                try {
+                    await cloudflareR2.checkFileExists(media.media_path);
+                } catch (error) {
+                    return res.status(400).json({ message: "Media file not found in storage" });
+                }
             }
             course = await prisma.$transaction(async (tx) => {
                 const course = await tx.courses.create({
@@ -174,7 +160,6 @@ export async function createCourse(req: Request, res: Response) {
                 },
             });
         } 
-
         return res.status(201).json({
             message: "Course created",
             course: {
@@ -192,16 +177,8 @@ export async function createCourse(req: Request, res: Response) {
 }
 
 export async function updateCourse(req: Request, res: Response) {
-    const schema = z.object({
-        courseId: z.cuid(),
-        title: z.string().min(3).optional(),
-        description: z.string().optional(),
-        is_paid: z.boolean().optional(),
-        thumbnail_id: z.cuid().optional()
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = updateCourseSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid input" });
         }
@@ -234,11 +211,8 @@ export async function updateCourse(req: Request, res: Response) {
 }
 
 export async function deleteCourse(req: Request, res: Response) {
-    const schema = z.object({
-        courseId: z.cuid()
-    }).strict();
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = deleteCourseSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({ message: "Invalid input" });
         }
@@ -249,25 +223,6 @@ export async function deleteCourse(req: Request, res: Response) {
         return res.status(200).json({ message: "Course deleted" });
     } catch (error) {
         return res.status(500).json({ message: "Error deleting course" });
-    }
-}
-
-export async function addCourseLessons(req: Request, res: Response) {
-    const schema = z.object({
-        courseId: z.cuid(),
-        lessons: z.array(z.object({
-            title: z.string().min(3),
-            description: z.string(),
-        }))
-    }).strict();
-    try {
-        const parsedResult = schema.safeParse(req.body);
-        if (!parsedResult.success) {
-            return res.status(400).json({ message: "Invalid input" });
-        }
-
-    } catch(error) {
-
     }
 }
 
@@ -417,12 +372,8 @@ export async function requestMediaUpload(req: Request, res: Response) {
 }
 
 export async function confirmMediaUpload(req: Request, res: Response) {
-    const schema = z.object({
-        mediaIds: z.array(z.cuid()).min(1).max(MAX_BATCH_SIZE)
-    }).strict();
-
     try {
-        const parsedResult = schema.safeParse(req.body);
+        const parsedResult = confirmMediaUploadSchema.safeParse(req.body);
         if (!parsedResult.success) {
             return res.status(400).json({
                 message: "Invalid input",

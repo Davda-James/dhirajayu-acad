@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import prisma from '@/shared/db';
-import * as z from 'zod';
 import { cloudflareR2 } from '@/api/v0/services/objectStore';
 import { createMediaUsageSchema, deleteMediaUsageSchema, listMediaUsagesByFolderSchema, updateMediaUsageSchema } from '@/shared/schema/media';
 
@@ -103,6 +102,7 @@ export async function listMediaUsagesByFolder(req: Request, res: Response) {
         res.setHeader('ETag', etag);
         return res.status(200).json({ usages: sanitizedUsages });
     } catch (error) {
+        console.error('Error listing media usages:', error);
         return res.status(500).json({ message: 'Error fetching media usages' });
     }
 }

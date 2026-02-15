@@ -33,7 +33,7 @@ async function handleFetch(request: Request, env: Env, ctx: ExecutionContext, ur
     const objectPath = decodeURIComponent(url.pathname).replace(/^\//, '');
     if (!objectPath) return new Response('Not Found', { status: 404 });
 
-		const isPublic = objectPath.startsWith('thumbnails/') || objectPath.startsWith('test/');
+		const isPublic = objectPath.startsWith('thumbnails/') || objectPath.startsWith('test/') || objectPath.startsWith('gallery/');
 
 		// Verify JWT for protected assets only (videos, audios, docs etc.)
     if (!isPublic) {

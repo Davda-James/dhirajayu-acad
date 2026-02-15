@@ -22,7 +22,6 @@ app.get("/status", (_, res) => {
     res.status(200).send({ status: "OK" });
 });
 
-
 app.use('/api/v0/users', verifyToken, userRouter);
 app.use('/api/v0/courses', verifyToken, courseRouter); 
 app.use('/api/v0/modules', verifyToken, moduleRouter);

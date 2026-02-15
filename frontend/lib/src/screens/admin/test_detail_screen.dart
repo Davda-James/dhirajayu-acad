@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppColors.dart';
 import 'package:dhiraj_ayu_academy/src/services/test_service.dart';
 import 'package:dhiraj_ayu_academy/src/constants/AppSpacing.dart';
+import 'package:dhiraj_ayu_academy/src/constants/AppTypography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:dio/dio.dart';
@@ -136,374 +137,513 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.only(top: 12.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).canvasColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-            ),
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: SingleChildScrollView(
-              child: StatefulBuilder(
-                builder: (context, setState) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).canvasColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // Handle bar
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextFormField(
-                              controller: qCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Question',
-                              ),
-                              maxLines: 3,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Question text is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: marksCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Marks (optional, default 1)',
-                                hintText: 'Leave empty to use default 1',
-                              ),
-                              keyboardType: TextInputType.number,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return null;
-                                final val = int.tryParse(v.trim());
-                                if (val == null || val <= 0)
-                                  return 'Enter valid marks (> 0)';
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: aCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option A',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: bCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option B',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: cCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option C',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: dCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option D',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      DropdownButton<String>(
-                        value: correct,
-                        items: const [
-                          DropdownMenuItem(value: 'A', child: Text('A')),
-                          DropdownMenuItem(value: 'B', child: Text('B')),
-                          DropdownMenuItem(value: 'C', child: Text('C')),
-                          DropdownMenuItem(value: 'D', child: Text('D')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => correct = v);
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      // Image picker (optional)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final res = await FilePicker.platform.pickFiles(
-                                type: FileType.image,
-                                allowMultiple: false,
-                                withData: true,
-                                withReadStream: true,
-                              );
-                              if (res == null || res.files.isEmpty) return;
-                              setState(() {
-                                _pickedImage = PlatformFile(
-                                  name: res.files.first.name,
-                                  path: res.files.first.path,
-                                  size: res.files.first.size,
-                                );
-                              });
-                            },
-                            icon: const Icon(Icons.add_photo_alternate),
-                            label: Text(
-                              _pickedImage == null
-                                  ? 'Add image (optional)'
-                                  : 'Change image',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryGreen,
-                              minimumSize: const Size.fromHeight(44),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                          if (_pickedImage != null) ...[
-                            const SizedBox(height: AppSpacing.sm),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final w =
-                                      constraints.maxWidth.isFinite &&
-                                          constraints.maxWidth > 0
-                                      ? constraints.maxWidth
-                                      : MediaQuery.of(context).size.width * 0.8;
+                    ),
 
-                                  // Prefer in-memory preview when available, otherwise use file path, else show placeholder
-                                  if (_previewBytes != null) {
-                                    return Image.memory(
-                                      _previewBytes!,
-                                      width: w,
-                                      height: 160,
-                                      fit: BoxFit.cover,
-                                    );
-                                  }
-
-                                  if (_pickedImage != null &&
-                                      _pickedImage!.path != null &&
-                                      _pickedImage!.path!.isNotEmpty) {
-                                    return Image.file(
-                                      File(_pickedImage!.path!),
-                                      width: w,
-                                      height: 160,
-                                      fit: BoxFit.cover,
-                                    );
-                                  }
-
-                                  return Container(
-                                    width: w,
-                                    height: 160,
-                                    color: Colors.grey.shade200,
-                                    alignment: Alignment.center,
-                                    child: const Text('Preview not available'),
-                                  );
-                                },
+                    // Content
+                    Expanded(
+                      child: StatefulBuilder(
+                        builder: (context, setState) {
+                          return ListView(
+                            controller: scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            children: [
+                              Text(
+                                'Add Question',
+                                style: AppTypography.headlineMedium,
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      _pickedImage = null;
-                                      _previewBytes = null;
-                                    });
+                              const SizedBox(height: AppSpacing.md),
+
+                              Form(
+                                key: _formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      controller: qCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Question',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      maxLines: 3,
+                                      autovalidateMode:
+                                          AutovalidateMode.onUserInteraction,
+                                      validator: (v) =>
+                                          v == null || v.trim().isEmpty
+                                          ? 'Question text is required'
+                                          : null,
+                                    ),
+
+                                    const SizedBox(height: AppSpacing.md),
+
+                                    TextFormField(
+                                      controller: marksCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText:
+                                            'Marks (optional, default 1)',
+                                        hintText:
+                                            'Leave empty to use default 1',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      autovalidateMode:
+                                          AutovalidateMode.onUserInteraction,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty)
+                                          return null;
+                                        final val = int.tryParse(v.trim());
+                                        if (val == null || val <= 0) {
+                                          return 'Enter valid marks (> 0)';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+                              Text('Options', style: AppTypography.titleMedium),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: aCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option A',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: bCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option B',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: cCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option C',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: dCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option D',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+
+                              Text(
+                                'Correct Answer',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButton<String>(
+                                  value: correct,
+                                  isExpanded: true,
+                                  underline: const SizedBox(),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'A',
+                                      child: Text('Option A'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'B',
+                                      child: Text('Option B'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'C',
+                                      child: Text('Option C'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'D',
+                                      child: Text('Option D'),
+                                    ),
+                                  ],
+                                  onChanged: (v) {
+                                    if (v != null) setState(() => correct = v);
                                   },
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: const Text('Remove image'),
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+
+                              // Image picker section
+                              Text(
+                                'Question Image (Optional)',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final res = await FilePicker.platform
+                                      .pickFiles(
+                                        type: FileType.image,
+                                        allowMultiple: false,
+                                        withData: true,
+                                        withReadStream: true,
+                                      );
+                                  if (res == null || res.files.isEmpty) return;
+                                  setState(() {
+                                    _pickedImage = res.files.first;
+                                  });
+                                },
+                                icon: const Icon(Icons.add_photo_alternate),
+                                label: Text(
+                                  _pickedImage == null
+                                      ? 'Add Image'
+                                      : 'Change Image',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryGreen,
+                                  minimumSize: const Size.fromHeight(44),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+
+                              if (_pickedImage != null) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child:
+                                      _pickedImage!.path != null &&
+                                          _pickedImage!.path!.isNotEmpty
+                                      ? Image.file(
+                                          File(_pickedImage!.path!),
+                                          width: double.infinity,
+                                          height: 160,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : _previewBytes != null
+                                      ? Image.memory(
+                                          _previewBytes!,
+                                          width: double.infinity,
+                                          height: 160,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Container(
+                                          width: double.infinity,
+                                          height: 160,
+                                          color: Colors.grey.shade200,
+                                          alignment: Alignment.center,
+                                          child: const Text(
+                                            'Preview not available',
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _pickedImage!.name,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _pickedImage = null;
+                                          _previewBytes = null;
+                                        });
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 20,
+                                      ),
+                                      label: const Text('Remove'),
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      if (_formError != null) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _formError!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: isSubmitting
-                                ? null
-                                : () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: isSubmitting
-                                ? null
-                                : () async {
-                                    if (!(_formKey.currentState?.validate() ??
-                                        false)) {
-                                      return;
-                                    }
 
-                                    final question = qCtrl.text.trim();
-                                    final marksText = marksCtrl.text.trim();
-                                    final marks = marksText.isEmpty
-                                        ? null
-                                        : int.parse(marksText);
-
-                                    setState(() => isSubmitting = true);
-                                    try {
-                                      String? mediaId;
-                                      if (_pickedImage != null) {
-                                        final mimeType =
-                                            lookupMimeType(
-                                              _pickedImage!.name,
-                                            ) ??
-                                            'application/octet-stream';
-
-                                        // Ask server for a presigned upload URL
-                                        final upload = await TestService()
-                                            .requestQuestionImageUpload({
-                                              'media': {
-                                                'fileName': _pickedImage!.name,
-                                                'fileSize': _pickedImage!.size,
-                                                'mimeType': mimeType,
-                                              },
-                                            })
-                                            .timeout(
-                                              const Duration(seconds: 8),
-                                            );
-                                        final uploadUrl =
-                                            upload['uploadUrl'] as String;
-                                        mediaId = upload['mediaId'] as String;
-
-                                        final dio = Dio();
-                                        Response resp;
-
-                                        if (_pickedImage!.path != null &&
-                                            _pickedImage!.path!.isNotEmpty) {
-                                          final file = File(
-                                            _pickedImage!.path!,
-                                          );
-                                          final fileSize = await file.length();
-                                          final dataStream = file.openRead();
-
-                                          resp = await dio
-                                              .put(
-                                                uploadUrl,
-                                                data: dataStream,
-                                                options: Options(
-                                                  headers: {
-                                                    'Content-Type': mimeType,
-                                                    'Content-Length': fileSize
-                                                        .toString(),
-                                                  },
-                                                ),
-                                              )
-                                              .timeout(
-                                                const Duration(seconds: 20),
-                                              );
-                                        } else if (_pickedImage!.bytes !=
-                                            null) {
-                                          // Fallback to in-memory bytes upload
-                                          final bytes = _pickedImage!.bytes!;
-                                          resp = await dio
-                                              .put(
-                                                uploadUrl,
-                                                data: bytes,
-                                                options: Options(
-                                                  headers: {
-                                                    'Content-Type': mimeType,
-                                                    'Content-Length': bytes
-                                                        .length
-                                                        .toString(),
-                                                  },
-                                                ),
-                                              )
-                                              .timeout(
-                                                const Duration(seconds: 20),
-                                              );
-                                        } else {
-                                          throw Exception(
-                                            'No file data available to upload',
-                                          );
-                                        }
-
-                                        if (resp.statusCode == null ||
-                                            resp.statusCode! < 200 ||
-                                            resp.statusCode! >= 300)
-                                          throw Exception('Upload failed');
-                                      }
-                                      final payload = <String, dynamic>{
-                                        'test_id': widget.testId,
-                                        'question_text': question,
-                                        if (marks != null) 'marks': marks,
-                                        'option_a': aCtrl.text.trim(),
-                                        'option_b': bCtrl.text.trim(),
-                                        'option_c': cCtrl.text.trim(),
-                                        'option_d': dCtrl.text.trim(),
-                                        'correct_option': correct,
-                                        if (mediaId != null) 'mediaId': mediaId,
-                                      };
-                                      await TestService()
-                                          .addQuestion(payload)
-                                          .timeout(const Duration(seconds: 12));
-                                      Navigator.of(context).pop(true);
-                                    } catch (e) {
-                                      setState(
-                                        () => _formError =
-                                            'Failed to add question',
-                                      );
-                                    } finally {
-                                      setState(() => isSubmitting = false);
-                                    }
-                                  },
-                            child: isSubmitting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.textOnPrimary,
+                              if (_formError != null) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.red.shade200,
                                     ),
-                                  )
-                                : const Text('Add'),
-                          ),
-                        ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        color: Colors.red.shade700,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _formError!,
+                                          style: TextStyle(
+                                            color: Colors.red.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: AppSpacing.lg),
+
+                              // Action buttons
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () =>
+                                              Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () async {
+                                            if (!(_formKey.currentState
+                                                    ?.validate() ??
+                                                false)) {
+                                              return;
+                                            }
+
+                                            final question = qCtrl.text.trim();
+                                            final marksText = marksCtrl.text
+                                                .trim();
+                                            final marks = marksText.isEmpty
+                                                ? null
+                                                : int.parse(marksText);
+
+                                            setState(() => isSubmitting = true);
+                                            try {
+                                              String? mediaId;
+                                              if (_pickedImage != null) {
+                                                final mimeType =
+                                                    lookupMimeType(
+                                                      _pickedImage!.name,
+                                                    ) ??
+                                                    'application/octet-stream';
+
+                                                final upload = await TestService()
+                                                    .requestQuestionImageUpload(
+                                                      {
+                                                        'media': {
+                                                          'fileName':
+                                                              _pickedImage!
+                                                                  .name,
+                                                          'fileSize':
+                                                              _pickedImage!
+                                                                  .size,
+                                                          'mimeType': mimeType,
+                                                        },
+                                                      },
+                                                    )
+                                                    .timeout(
+                                                      const Duration(
+                                                        seconds: 8,
+                                                      ),
+                                                    );
+
+                                                final uploadUrl =
+                                                    upload['uploadUrl']
+                                                        as String;
+                                                mediaId =
+                                                    upload['mediaId'] as String;
+
+                                                final dio = Dio();
+                                                Response resp;
+
+                                                if (_pickedImage!.path !=
+                                                        null &&
+                                                    _pickedImage!
+                                                        .path!
+                                                        .isNotEmpty) {
+                                                  final file = File(
+                                                    _pickedImage!.path!,
+                                                  );
+                                                  final fileSize = await file
+                                                      .length();
+                                                  final dataStream = file
+                                                      .openRead();
+
+                                                  resp = await dio
+                                                      .put(
+                                                        uploadUrl,
+                                                        data: dataStream,
+                                                        options: Options(
+                                                          headers: {
+                                                            'Content-Type':
+                                                                mimeType,
+                                                            'Content-Length':
+                                                                fileSize
+                                                                    .toString(),
+                                                          },
+                                                        ),
+                                                      )
+                                                      .timeout(
+                                                        const Duration(
+                                                          seconds: 20,
+                                                        ),
+                                                      );
+                                                } else if (_pickedImage!
+                                                        .bytes !=
+                                                    null) {
+                                                  final bytes =
+                                                      _pickedImage!.bytes!;
+                                                  resp = await dio
+                                                      .put(
+                                                        uploadUrl,
+                                                        data: bytes,
+                                                        options: Options(
+                                                          headers: {
+                                                            'Content-Type':
+                                                                mimeType,
+                                                            'Content-Length':
+                                                                bytes.length
+                                                                    .toString(),
+                                                          },
+                                                        ),
+                                                      )
+                                                      .timeout(
+                                                        const Duration(
+                                                          seconds: 20,
+                                                        ),
+                                                      );
+                                                } else {
+                                                  throw Exception(
+                                                    'No file data available',
+                                                  );
+                                                }
+
+                                                if (resp.statusCode == null ||
+                                                    resp.statusCode! < 200 ||
+                                                    resp.statusCode! >= 300) {
+                                                  throw Exception(
+                                                    'Upload failed',
+                                                  );
+                                                }
+                                              }
+
+                                              final payload = <String, dynamic>{
+                                                'test_id': widget.testId,
+                                                'question_text': question,
+                                                if (marks != null)
+                                                  'marks': marks,
+                                                'option_a': aCtrl.text.trim(),
+                                                'option_b': bCtrl.text.trim(),
+                                                'option_c': cCtrl.text.trim(),
+                                                'option_d': dCtrl.text.trim(),
+                                                'correct_option': correct,
+                                                if (mediaId != null)
+                                                  'mediaId': mediaId,
+                                              };
+
+                                              await TestService()
+                                                  .addQuestion(payload)
+                                                  .timeout(
+                                                    const Duration(seconds: 12),
+                                                  );
+
+                                              Navigator.of(context).pop(true);
+                                            } catch (e) {
+                                              setState(() {
+                                                _formError =
+                                                    'Failed to add question: ${e.toString()}';
+                                              });
+                                            } finally {
+                                              setState(
+                                                () => isSubmitting = false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primaryGreen,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: isSubmitting
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Add Question'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
@@ -537,209 +677,315 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.only(top: 12.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).canvasColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-            ),
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: SingleChildScrollView(
-              child: StatefulBuilder(
-                builder: (context, setState) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).canvasColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // Handle bar
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextFormField(
-                              controller: qCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Question',
-                              ),
-                              maxLines: 3,
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Question text is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: marksCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Marks',
-                                hintText: 'Optional - default 1',
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return null;
-                                final val = int.tryParse(v.trim());
-                                if (val == null || val <= 0)
-                                  return 'Enter valid marks (> 0)';
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: aCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option A',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: bCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option B',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: cCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option C',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: dCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Option D',
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      DropdownButton<String>(
-                        value: correct,
-                        items: const [
-                          DropdownMenuItem(value: 'A', child: Text('A')),
-                          DropdownMenuItem(value: 'B', child: Text('B')),
-                          DropdownMenuItem(value: 'C', child: Text('C')),
-                          DropdownMenuItem(value: 'D', child: Text('D')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => correct = v);
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
+                    ),
 
-                      // Image picker / remove controls
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (q['image_id'] != null && !_removeImage) ...[
-                            const SizedBox(height: AppSpacing.sm),
+                    // Content
+                    Expanded(
+                      child: StatefulBuilder(
+                        builder: (context, setState) {
+                          return ListView(
+                            controller: scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            children: [
+                              Text(
+                                'Edit Question',
+                                style: AppTypography.headlineMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
 
-                            // Image preview for existing question image
-                            FutureBuilder<Uint8List?>(
-                              future: () async {
-                                try {
-                                  final assetId = q['image_id'].toString();
-                                  final usageId =
-                                      'edit_question_image_${q['id']}';
-                                  final ok = await mediaTokenCache
-                                      .ensureTokenForUsage(
-                                        usageId,
-                                        assetId: assetId,
-                                      );
-                                  if (!ok) return null;
-                                  final details = mediaTokenCache.getDetails(
-                                    usageId,
-                                  );
-                                  final url = details?['media_url'] as String?;
-                                  final token =
-                                      details?['worker_token'] as String?;
-                                  if (url == null) return null;
-                                  final dio = Dio();
-                                  final resp = await dio.get<List<int>>(
-                                    url,
-                                    options: Options(
-                                      responseType: ResponseType.bytes,
-                                      headers: {
-                                        if (token != null)
-                                          'Authorization': 'Bearer $token',
+                              Form(
+                                key: _formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      controller: qCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Question',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      maxLines: 3,
+                                      validator: (v) =>
+                                          v == null || v.trim().isEmpty
+                                          ? 'Question text is required'
+                                          : null,
+                                    ),
+
+                                    const SizedBox(height: AppSpacing.md),
+
+                                    TextFormField(
+                                      controller: marksCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Marks',
+                                        hintText: 'Optional - default 1',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty)
+                                          return null;
+                                        final val = int.tryParse(v.trim());
+                                        if (val == null || val <= 0) {
+                                          return 'Enter valid marks (> 0)';
+                                        }
+                                        return null;
                                       },
                                     ),
-                                  );
-                                  return Uint8List.fromList(resp.data!);
-                                } catch (e) {
-                                  return null;
-                                }
-                              }(),
-                              builder: (context, snap) {
-                                if (snap.connectionState !=
-                                    ConnectionState.done) {
-                                  return const SizedBox(
-                                    height: 160,
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+                              Text('Options', style: AppTypography.titleMedium),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: aCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option A',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: bCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option B',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: cCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option C',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              TextField(
+                                controller: dCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Option D',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+
+                              Text(
+                                'Correct Answer',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButton<String>(
+                                  value: correct,
+                                  isExpanded: true,
+                                  underline: const SizedBox(),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'A',
+                                      child: Text('Option A'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'B',
+                                      child: Text('Option B'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'C',
+                                      child: Text('Option C'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'D',
+                                      child: Text('Option D'),
+                                    ),
+                                  ],
+                                  onChanged: (v) {
+                                    if (v != null) setState(() => correct = v);
+                                  },
+                                ),
+                              ),
+
+                              const SizedBox(height: AppSpacing.md),
+
+                              // Image section
+                              Text(
+                                'Question Image',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+
+                              if (q['image_id'] != null && !_removeImage) ...[
+                                // Existing image preview
+                                FutureBuilder<Uint8List?>(
+                                  future: () async {
+                                    try {
+                                      final assetId = q['image_id'].toString();
+                                      final usageId =
+                                          'edit_question_image_${q['id']}';
+                                      final ok = await mediaTokenCache
+                                          .ensureTokenForUsage(
+                                            usageId,
+                                            assetId: assetId,
+                                          );
+                                      if (!ok) return null;
+                                      final details = mediaTokenCache
+                                          .getDetails(usageId);
+                                      final url =
+                                          details?['media_url'] as String?;
+                                      final token =
+                                          details?['worker_token'] as String?;
+                                      if (url == null) return null;
+                                      final dio = Dio();
+                                      final resp = await dio.get<List<int>>(
+                                        url,
+                                        options: Options(
+                                          responseType: ResponseType.bytes,
+                                          headers: {
+                                            if (token != null)
+                                              'Authorization': 'Bearer $token',
+                                          },
+                                        ),
+                                      );
+                                      return Uint8List.fromList(resp.data!);
+                                    } catch (e) {
+                                      return null;
+                                    }
+                                  }(),
+                                  builder: (context, snap) {
+                                    if (snap.connectionState !=
+                                        ConnectionState.done) {
+                                      return Container(
+                                        width: double.infinity,
+                                        height: 160,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    if (snap.hasError || snap.data == null) {
+                                      return Container(
+                                        width: double.infinity,
+                                        height: 160,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Preview not available',
+                                        ),
+                                      );
+                                    }
+                                    return ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.memory(
+                                        snap.data!,
+                                        width: double.infinity,
+                                        height: 160,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    );
+                                  },
+                                ),
+
+                                const SizedBox(height: AppSpacing.sm),
+
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          final res = await FilePicker.platform
+                                              .pickFiles(
+                                                type: FileType.image,
+                                                allowMultiple: false,
+                                                withData: true,
+                                                withReadStream: true,
+                                              );
+                                          if (res == null || res.files.isEmpty)
+                                            return;
+                                          setState(() {
+                                            _pickedImage = res.files.first;
+                                            _removeImage = false;
+                                          });
+                                        },
+                                        icon: const Icon(Icons.swap_horiz),
+                                        label: const Text('Replace'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () =>
+                                            setState(() => _removeImage = true),
+                                        icon: const Icon(Icons.delete_outline),
+                                        label: const Text('Remove'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
                                         ),
                                       ),
                                     ),
-                                  );
-                                }
-                                if (snap.hasError || snap.data == null) {
-                                  return Container(
-                                    width: double.infinity,
-                                    height: 160,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text('Preview not available'),
-                                  );
-                                }
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.memory(
-                                    snap.data!,
-                                    width: double.infinity,
-                                    height: 160,
-                                    fit: BoxFit.cover,
-                                  ),
-                                );
-                              },
-                            ),
-
-                            const SizedBox(height: AppSpacing.xs),
-
-                            // Center the action buttons below the preview
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 12,
-                              children: [
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      setState(() => _removeImage = true),
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: const Text('Remove image'),
+                                  ],
                                 ),
-                                TextButton.icon(
+                              ] else ...[
+                                // No image or removed - show add button
+                                ElevatedButton.icon(
                                   onPressed: () async {
                                     final res = await FilePicker.platform
                                         .pickFiles(
@@ -751,305 +997,350 @@ class _AdminTestDetailScreenState extends State<AdminTestDetailScreen> {
                                     if (res == null || res.files.isEmpty)
                                       return;
                                     setState(() {
-                                      _pickedImage = PlatformFile(
-                                        name: res.files.first.name,
-                                        path: res.files.first.path,
-                                        size: res.files.first.size,
-                                      );
+                                      _pickedImage = res.files.first;
                                       _removeImage = false;
                                     });
                                   },
                                   icon: const Icon(Icons.add_photo_alternate),
-                                  label: const Text('Replace image'),
-                                ),
-                              ],
-                            ),
-                          ] else ...[
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final res = await FilePicker.platform.pickFiles(
-                                  type: FileType.image,
-                                  allowMultiple: false,
-                                  withData: true,
-                                  withReadStream: true,
-                                );
-                                if (res == null || res.files.isEmpty) return;
-                                setState(() {
-                                  _pickedImage = PlatformFile(
-                                    name: res.files.first.name,
-                                    path: res.files.first.path,
-                                    size: res.files.first.size,
-                                  );
-                                  _removeImage = false;
-                                });
-                              },
-                              icon: const Icon(Icons.add_photo_alternate),
-                              label: Text(
-                                _pickedImage == null
-                                    ? 'Add image (optional)'
-                                    : 'Change image',
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryGreen,
-                                minimumSize: const Size.fromHeight(44),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ],
-
-                          if (_pickedImage != null) ...[
-                            const SizedBox(height: AppSpacing.sm),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final w =
-                                      constraints.maxWidth.isFinite &&
-                                          constraints.maxWidth > 0
-                                      ? constraints.maxWidth
-                                      : MediaQuery.of(context).size.width * 0.8;
-
-                                  if (_previewBytes != null) {
-                                    return Image.memory(
-                                      _previewBytes!,
-                                      width: w,
-                                      height: 160,
-                                      fit: BoxFit.cover,
-                                    );
-                                  }
-
-                                  if (_pickedImage != null &&
-                                      _pickedImage!.path != null &&
-                                      _pickedImage!.path!.isNotEmpty) {
-                                    return Image.file(
-                                      File(_pickedImage!.path!),
-                                      width: w,
-                                      height: 160,
-                                      fit: BoxFit.cover,
-                                    );
-                                  }
-
-                                  return Container(
-                                    width: w,
-                                    height: 160,
-                                    color: Colors.grey.shade200,
-                                    alignment: Alignment.center,
-                                    child: const Text('Preview not available'),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      _pickedImage = null;
-                                      _previewBytes = null;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: const Text('Remove image'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-
-                      const SizedBox(height: AppSpacing.md),
-                      if (_formError != null) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _formError!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: isSubmitting
-                                ? null
-                                : () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: isSubmitting
-                                ? null
-                                : () async {
-                                    if (!(_formKey.currentState?.validate() ??
-                                        false))
-                                      return;
-
-                                    final marksText = marksCtrl.text.trim();
-                                    final marks = marksText.isEmpty
-                                        ? null
-                                        : int.parse(marksText);
-
-                                    setState(() => isSubmitting = true);
-                                    try {
-                                      String? mediaId;
-
-                                      // If user picked image -> upload and get mediaId
-                                      if (_pickedImage != null) {
-                                        final mimeType =
-                                            lookupMimeType(
-                                              _pickedImage!.name,
-                                            ) ??
-                                            'application/octet-stream';
-                                        final upload = await TestService()
-                                            .requestQuestionImageUpload({
-                                              'media': {
-                                                'fileName': _pickedImage!.name,
-                                                'fileSize': _pickedImage!.size,
-                                                'mimeType': mimeType,
-                                              },
-                                            })
-                                            .timeout(
-                                              const Duration(seconds: 8),
-                                            );
-
-                                        final uploadUrl =
-                                            upload['uploadUrl'] as String;
-                                        mediaId = upload['mediaId'] as String;
-
-                                        final dio = Dio();
-                                        Response resp;
-
-                                        if (_pickedImage!.path != null &&
-                                            _pickedImage!.path!.isNotEmpty) {
-                                          final file = File(
-                                            _pickedImage!.path!,
-                                          );
-                                          final fileSize = await file.length();
-                                          final dataStream = file.openRead();
-
-                                          resp = await dio
-                                              .put(
-                                                uploadUrl,
-                                                data: dataStream,
-                                                options: Options(
-                                                  headers: {
-                                                    'Content-Type': mimeType,
-                                                    'Content-Length': fileSize
-                                                        .toString(),
-                                                  },
-                                                ),
-                                              )
-                                              .timeout(
-                                                const Duration(seconds: 20),
-                                              );
-                                        } else if (_pickedImage!.bytes !=
-                                            null) {
-                                          final bytes = _pickedImage!.bytes!;
-                                          resp = await dio
-                                              .put(
-                                                uploadUrl,
-                                                data: bytes,
-                                                options: Options(
-                                                  headers: {
-                                                    'Content-Type': mimeType,
-                                                    'Content-Length': bytes
-                                                        .length
-                                                        .toString(),
-                                                  },
-                                                ),
-                                              )
-                                              .timeout(
-                                                const Duration(seconds: 20),
-                                              );
-                                        } else {
-                                          throw Exception(
-                                            'No file data available to upload',
-                                          );
-                                        }
-
-                                        if (resp.statusCode == null ||
-                                            resp.statusCode! < 200 ||
-                                            resp.statusCode! >= 300) {
-                                          throw Exception('Upload failed');
-                                        }
-                                      }
-
-                                      // Build payload
-                                      final payload = <String, dynamic>{
-                                        if (qCtrl.text.trim() !=
-                                            q['question_text'])
-                                          'question_text': qCtrl.text.trim(),
-                                        if (marks != null &&
-                                            marks != q['marks'])
-                                          'marks': marks,
-                                        if (aCtrl.text.trim() != q['option_a'])
-                                          'option_a': aCtrl.text.trim(),
-                                        if (bCtrl.text.trim() != q['option_b'])
-                                          'option_b': bCtrl.text.trim(),
-                                        if (cCtrl.text.trim() != q['option_c'])
-                                          'option_c': cCtrl.text.trim(),
-                                        if (dCtrl.text.trim() != q['option_d'])
-                                          'option_d': dCtrl.text.trim(),
-                                        if (correct != q['correct_option'])
-                                          'correct_option': correct,
-                                      };
-
-                                      if (_pickedImage != null) {
-                                        payload['imageId'] = mediaId;
-                                        if (q['image_id'] != null)
-                                          payload['previous_imageId'] =
-                                              q['image_id'];
-                                      }
-
-                                      if (_removeImage &&
-                                          q['image_id'] != null) {
-                                        payload['removeImage'] = true;
-                                        payload['previous_imageId'] =
-                                            q['image_id'];
-                                      }
-
-                                      await TestService()
-                                          .updateQuestion(
-                                            q['id'].toString(),
-                                            payload,
-                                          )
-                                          .timeout(const Duration(seconds: 12));
-
-                                      Navigator.of(context).pop(true);
-                                    } catch (e) {
-                                      setState(
-                                        () => _formError =
-                                            'Failed to update question',
-                                      );
-                                    } finally {
-                                      setState(() => isSubmitting = false);
-                                    }
-                                  },
-                            child: isSubmitting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.textOnPrimary,
+                                  label: Text(
+                                    _pickedImage == null
+                                        ? 'Add Image'
+                                        : 'Change Image',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryGreen,
+                                    minimumSize: const Size.fromHeight(44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                  )
-                                : const Text('Save'),
-                          ),
-                        ],
+                                  ),
+                                ),
+                              ],
+
+                              // New picked image preview
+                              if (_pickedImage != null) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child:
+                                      _pickedImage!.path != null &&
+                                          _pickedImage!.path!.isNotEmpty
+                                      ? Image.file(
+                                          File(_pickedImage!.path!),
+                                          width: double.infinity,
+                                          height: 160,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : _previewBytes != null
+                                      ? Image.memory(
+                                          _previewBytes!,
+                                          width: double.infinity,
+                                          height: 160,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Container(
+                                          width: double.infinity,
+                                          height: 160,
+                                          color: Colors.grey.shade200,
+                                          alignment: Alignment.center,
+                                          child: const Text(
+                                            'Preview not available',
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _pickedImage!.name,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _pickedImage = null;
+                                          _previewBytes = null;
+                                        });
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 20,
+                                      ),
+                                      label: const Text('Remove'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+
+                              if (_formError != null) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.red.shade200,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        color: Colors.red.shade700,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _formError!,
+                                          style: TextStyle(
+                                            color: Colors.red.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: AppSpacing.lg),
+
+                              // Action buttons
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () =>
+                                              Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () async {
+                                            if (!(_formKey.currentState
+                                                    ?.validate() ??
+                                                false)) {
+                                              return;
+                                            }
+
+                                            final marksText = marksCtrl.text
+                                                .trim();
+                                            final marks = marksText.isEmpty
+                                                ? null
+                                                : int.parse(marksText);
+
+                                            setState(() => isSubmitting = true);
+                                            try {
+                                              String? mediaId;
+
+                                              // Upload new image if picked
+                                              if (_pickedImage != null) {
+                                                final mimeType =
+                                                    lookupMimeType(
+                                                      _pickedImage!.name,
+                                                    ) ??
+                                                    'application/octet-stream';
+                                                final upload = await TestService()
+                                                    .requestQuestionImageUpload(
+                                                      {
+                                                        'media': {
+                                                          'fileName':
+                                                              _pickedImage!
+                                                                  .name,
+                                                          'fileSize':
+                                                              _pickedImage!
+                                                                  .size,
+                                                          'mimeType': mimeType,
+                                                        },
+                                                      },
+                                                    )
+                                                    .timeout(
+                                                      const Duration(
+                                                        seconds: 8,
+                                                      ),
+                                                    );
+
+                                                final uploadUrl =
+                                                    upload['uploadUrl']
+                                                        as String;
+                                                mediaId =
+                                                    upload['mediaId'] as String;
+
+                                                final dio = Dio();
+                                                Response resp;
+
+                                                if (_pickedImage!.path !=
+                                                        null &&
+                                                    _pickedImage!
+                                                        .path!
+                                                        .isNotEmpty) {
+                                                  final file = File(
+                                                    _pickedImage!.path!,
+                                                  );
+                                                  final fileSize = await file
+                                                      .length();
+                                                  final dataStream = file
+                                                      .openRead();
+
+                                                  resp = await dio
+                                                      .put(
+                                                        uploadUrl,
+                                                        data: dataStream,
+                                                        options: Options(
+                                                          headers: {
+                                                            'Content-Type':
+                                                                mimeType,
+                                                            'Content-Length':
+                                                                fileSize
+                                                                    .toString(),
+                                                          },
+                                                        ),
+                                                      )
+                                                      .timeout(
+                                                        const Duration(
+                                                          seconds: 20,
+                                                        ),
+                                                      );
+                                                } else if (_pickedImage!
+                                                        .bytes !=
+                                                    null) {
+                                                  final bytes =
+                                                      _pickedImage!.bytes!;
+                                                  resp = await dio
+                                                      .put(
+                                                        uploadUrl,
+                                                        data: bytes,
+                                                        options: Options(
+                                                          headers: {
+                                                            'Content-Type':
+                                                                mimeType,
+                                                            'Content-Length':
+                                                                bytes.length
+                                                                    .toString(),
+                                                          },
+                                                        ),
+                                                      )
+                                                      .timeout(
+                                                        const Duration(
+                                                          seconds: 20,
+                                                        ),
+                                                      );
+                                                } else {
+                                                  throw Exception(
+                                                    'No file data available',
+                                                  );
+                                                }
+
+                                                if (resp.statusCode == null ||
+                                                    resp.statusCode! < 200 ||
+                                                    resp.statusCode! >= 300) {
+                                                  throw Exception(
+                                                    'Upload failed',
+                                                  );
+                                                }
+                                              }
+
+                                              // Build update payload
+                                              final payload = <String, dynamic>{
+                                                if (qCtrl.text.trim() !=
+                                                    q['question_text'])
+                                                  'question_text': qCtrl.text
+                                                      .trim(),
+                                                if (marks != null &&
+                                                    marks != q['marks'])
+                                                  'marks': marks,
+                                                if (aCtrl.text.trim() !=
+                                                    q['option_a'])
+                                                  'option_a': aCtrl.text.trim(),
+                                                if (bCtrl.text.trim() !=
+                                                    q['option_b'])
+                                                  'option_b': bCtrl.text.trim(),
+                                                if (cCtrl.text.trim() !=
+                                                    q['option_c'])
+                                                  'option_c': cCtrl.text.trim(),
+                                                if (dCtrl.text.trim() !=
+                                                    q['option_d'])
+                                                  'option_d': dCtrl.text.trim(),
+                                                if (correct !=
+                                                    q['correct_option'])
+                                                  'correct_option': correct,
+                                              };
+
+                                              if (_pickedImage != null) {
+                                                payload['imageId'] = mediaId;
+                                                if (q['image_id'] != null) {
+                                                  payload['previous_imageId'] =
+                                                      q['image_id'];
+                                                }
+                                              }
+
+                                              if (_removeImage &&
+                                                  q['image_id'] != null) {
+                                                payload['removeImage'] = true;
+                                                payload['previous_imageId'] =
+                                                    q['image_id'];
+                                              }
+
+                                              await TestService()
+                                                  .updateQuestion(
+                                                    q['id'].toString(),
+                                                    payload,
+                                                  )
+                                                  .timeout(
+                                                    const Duration(seconds: 12),
+                                                  );
+
+                                              Navigator.of(context).pop(true);
+                                            } catch (e) {
+                                              setState(() {
+                                                _formError =
+                                                    'Failed to update question: ${e.toString()}';
+                                              });
+                                            } finally {
+                                              setState(
+                                                () => isSubmitting = false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primaryGreen,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: isSubmitting
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Save Changes'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },

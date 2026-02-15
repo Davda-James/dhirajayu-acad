@@ -4,7 +4,6 @@ import {
   updateCourse,
   deleteCourse,
   getAllCourses,
-  addCourseLessons,
   requestMediaUpload,
   confirmMediaUpload,
   uploadThumbnail,
@@ -22,7 +21,6 @@ const router = Router();
 router.post('/create-course', verifySession, checkRoleisAdmin, createCourse);
 router.put('/update-course', verifySession, checkRoleisAdmin, updateCourse);
 router.delete('/delete-course', verifySession, checkRoleisAdmin, deleteCourse);
-router.get('/:courseId/add-lessons', verifySession, checkRoleisAdmin, addCourseLessons);
 
 
 // Admin routes - media upload

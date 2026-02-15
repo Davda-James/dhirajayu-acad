@@ -112,6 +112,7 @@ model MediaAsset {
   duration        Int?
   status          MediaStatus  @default(PENDING)
   is_free_preview Boolean      @default(false)
+  is_for_gallery  Boolean      @default(false)
   created_at      DateTime     @default(now())
   updated_at      DateTime     @updatedAt
   mediaUsages     MediaUsage[]
@@ -258,4 +259,10 @@ model AttemptAnswer {
 
   @@unique([attempt_id, question_id])
   @@index([attempt_id])
+}
+
+model GalleryVideos {
+  id         String   @id @default(cuid())
+  url        String
+  created_at DateTime @default(now())
 }

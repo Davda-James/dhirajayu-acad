@@ -4,7 +4,7 @@ import { MediaType } from '@prisma/client';
 
 const MAX_BATCH_SIZE = 10;
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png','image/jpg', 'image/webp'];
-const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1GB
+const MAX_FILE_SIZE = 2000 * 1024 * 1024; // 2GB
 const ALLOWED_MIME_TYPES = [
     'video/mp4', 'video/quicktime', 'video/x-msvideo',
     'audio/mpeg', 'audio/wav', 'audio/ogg',
@@ -13,13 +13,12 @@ const ALLOWED_MIME_TYPES = [
     'image/jpeg', 'image/png', 'image/webp'
 ];
 
-export const createMediaAssetSchema = z.object({
-        fileName: z.string(),
-        fileSize: z.number().int(),
-        mimeType: z.string(),
-        mediaPath: z.string(),
-        type: z.enum(MediaType),
-        duration: z.number().int().optional()
+export const createGalleryMediaAssetSchema = z.object({
+    fileName: z.string(),
+    fileSize: z.number().int(),
+    mimeType: z.string(),
+    mediaPath: z.string(),
+    type: z.enum(MediaType),
 }).strict();
 
 export const imageUploadSchema = z.object({
@@ -80,4 +79,19 @@ export const deleteMediaUsageSchema = z.object({
     usageId: z.cuid()
 }).strict();
 
+export const confirmMediaUploadSchema = z.object({
+    mediaIds: z.array(z.cuid()).min(1).max(MAX_BATCH_SIZE)
+}).strict();
 
+export const listGalleryMediaSchema = z.object({
+    type: z.enum(MediaType),    
+}).strict();
+
+export const deleteGalleryMediaAssetSchema = z.object({
+    assetId: z.cuid(),
+    type: z.enum(MediaType)
+}).strict();
+
+export const externalVideoUploadSchema = z.object({
+    url: z.url(),
+}).strict();

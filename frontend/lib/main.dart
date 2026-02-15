@@ -9,9 +9,9 @@ import 'src/constants/AppTheme.dart';
 import 'src/constants/AppConstants.dart';
 import 'src/screens/splash_screen.dart';
 import 'src/screens/auth/login_screen.dart';
-import 'src/screens/home/home_screen.dart';
+import 'src/screens/home/bottom_navbar.dart';
 import 'src/screens/courses/course_detail_screen.dart';
-import 'src/screens/admin/home.dart';
+import 'src/screens/admin/bottom_navbar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

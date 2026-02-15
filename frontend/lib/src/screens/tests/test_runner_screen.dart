@@ -218,7 +218,7 @@ class _TestRunnerScreenState extends State<TestRunnerScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                       side: BorderSide(
-                        color: AppColors.primaryGreen.withOpacity(0.12),
+                        color: AppColors.primaryGreen.withValues(alpha: 0.12),
                       ),
                     ),
                     avatar: Icon(

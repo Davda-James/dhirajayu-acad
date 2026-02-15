@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import prisma from '@/shared/db';
 import { Role } from '@prisma/client'
 import crypto from 'crypto';
-import { z } from 'zod';
 import { getAllUsersSchema, updateRoleSchema } from '@/shared/schema/user';
 
 function generateSessionId() {

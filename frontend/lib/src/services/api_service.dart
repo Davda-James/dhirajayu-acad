@@ -69,7 +69,6 @@ class ApiService {
   Future<void> _saveSessionId(String sessionId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConstants.keySessionId, sessionId);
-    print('Saved sessionId to prefs: $sessionId');
   }
 
   /// Get session ID
@@ -264,7 +263,37 @@ class ApiService {
     return response.data;
   }
 
-  /// Delete media usage by ID
+  Future<List<Map<String, dynamic>>> listGalleryMedia(String type) async {
+    final resp = await get(
+      'media-assets/gallery',
+      queryParameters: {'type': type},
+    );
+    final data = resp.data as Map<String, dynamic>;
+    final items =
+        (data['assets'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    return items;
+  }
+
+  Future<Response> requestGalleryMediaUpload(
+    Map<String, dynamic> payload,
+  ) async {
+    return await post('media-assets/request-gallery-upload', data: payload);
+  }
+
+  Future<Response> createGalleryMediaAsset(
+    Map<String, dynamic> payload,
+    String type,
+  ) async {
+    if (type == 'IMAGE') {
+      return await post('media-assets/upload-gallery-image', data: payload);
+    }
+    return await post('media-assets/upload-gallery-video', data: payload);
+  }
+
+  Future<Response> deleteGalleryMedia(String assetId, String type) async {
+    return await delete('media-assets/gallery/$type/$assetId');
+  }
+
   Future<void> deleteMediaUsage(String usageId) async {
     await delete('media-usages/delete/$usageId');
   }
